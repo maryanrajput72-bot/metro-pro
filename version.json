@@ -1,1 +1,6 @@
-{"versionName":"1.0","versionCode":1,"apkUrl":"https://maryanrajput72-bot.github.io/metro-pro/MetroPro-v1.0.apk","notes":"MetroPro v1.0 - first test build: full GUI (Golden Rush + Deep Forest), smooth screens, working money calculator, auto update system"}
+{
+  "versionCode": 2,
+  "versionName": "1.1",
+  "apkUrl": "https://maryanrajput72-bot.github.io/metro-pro/MetroPro-v1.1.apk",
+  "notes": "TOM Data: Opening/Closing alag sections, Metro+ wala auto hisaab (Used/Sale/Slips), Save kabhi overwrite nahi karta"
+}

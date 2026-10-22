@@ -66,8 +66,8 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
-private const val CURRENT_VERSION_CODE = 1
-private const val CURRENT_VERSION_NAME = "1.0"
+private const val CURRENT_VERSION_CODE = 2
+private const val CURRENT_VERSION_NAME = "1.1"
 private const val VERSION_URL = "https://maryanrajput72-bot.github.io/metro-pro/version.json"
 
 private val Forest1 = Color(0xFF0D2818)
@@ -494,49 +494,227 @@ fun SummaryStat(num: String, cap: String, modifier: Modifier = Modifier) {
     }
 }
 
-/* ---------------- TOM Data ---------------- */
+/* ---------------- TOM Data (Metro+ wala concept) ---------------- */
+
+object TomStore {
+    private const val PREFS = "metropro_tom"
+    fun dateKey(): String = SimpleDateFormat("yyyyMMdd", Locale.ENGLISH).format(Date())
+    fun load(ctx: android.content.Context, which: String): Map<String, String> {
+        val prefs = ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+        val raw = prefs.getString("d_${dateKey()}_$which", null) ?: return emptyMap()
+        return try {
+            val obj = org.json.JSONObject(raw)
+            val map = mutableMapOf<String, String>()
+            val keys = obj.keys()
+            while (keys.hasNext()) { val k = keys.next(); map[k] = obj.optString(k, "") }
+            map
+        } catch (e: Exception) { emptyMap() }
+    }
+    fun savedAt(ctx: android.content.Context, which: String): String? {
+        val prefs = ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE)
+        return prefs.getString("d_${dateKey()}_${which}_at", null)
+    }
+    fun save(ctx: android.content.Context, which: String, data: Map<String, String>) {
+        val obj = org.json.JSONObject()
+        data.forEach { (k, v) -> obj.put(k, v) }
+        val time = SimpleDateFormat("hh:mm a", Locale.ENGLISH).format(Date())
+        ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit()
+            .putString("d_${dateKey()}_$which", obj.toString())
+            .putString("d_${dateKey()}_${which}_at", time)
+            .apply()
+    }
+}
+
+fun tomNum(map: Map<String, String>, key: String): Double = map[key]?.replace(",", "")?.toDoubleOrNull() ?: 0.0
+fun tomFmt(v: Double): String = if (v % 1.0 == 0.0) "%,d".format(v.toInt()) else "%,.1f".format(v)
+
+@Composable
+fun TomNumField(label: String, value: String, onChange: (String) -> Unit) {
+    Column(Modifier.padding(bottom = 10.dp)) {
+        Text(label, color = White70, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 5.dp))
+        BasicTextField(
+            value = value,
+            onValueChange = { onChange(it.filter { ch -> ch.isDigit() || ch == '.' }) },
+            textStyle = TextStyle(color = Color.White, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold),
+            cursorBrush = SolidColor(Gold1),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            singleLine = true,
+            decorationBox = { inner ->
+                Box(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Forest1)
+                        .border(1.dp, Color(0x4DFFD700), RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 11.dp)
+                ) { inner() }
+            }
+        )
+    }
+}
 
 @Composable
 fun TomScreen(back: () -> Unit) {
     val context = LocalContext.current
-    var opening by remember { mutableStateOf("12,450") }
-    var cards by remember { mutableStateOf("38") }
-    var notes by remember { mutableStateOf("") }
+    var mode by remember { mutableStateOf("opening") }
+    val fields = remember { mutableStateMapOf<String, String>() }
+    var openingSavedAt by remember { mutableStateOf<String?>(null) }
+    var closingSavedAt by remember { mutableStateOf<String?>(null) }
+    var prefilled by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        fields.putAll(TomStore.load(context, "opening"))
+        val cls = TomStore.load(context, "closing")
+        // closing ke sirf *_cls keys — opening ki values in se kabhi overwrite nahi hoteen
+        cls.forEach { (k, v) -> if (k.endsWith("_cls") || k == "bop_slips") fields[k] = v }
+        openingSavedAt = TomStore.savedAt(context, "opening")
+        closingSavedAt = TomStore.savedAt(context, "closing")
+    }
+
+    fun f(key: String) = fields[key] ?: ""
+    fun set(key: String, v: String) { fields[key] = v }
+
+    // Closing pe pehli dafa jao to khaali closing opening se bhar do (Metro+ rule):
+    // rolls: closing = opening; TOM machines: closing = opening + recharge.
+    // Jo closing pehle se saved/typed hai, wo kabhi nahi badlegi.
+    fun prefillClosing() {
+        if (prefilled) return
+        prefilled = true
+        listOf("bop", "roll", "tkm").forEach { p ->
+            if (f(p + "_cls").isBlank()) {
+                val op = f(p + "_op"); if (op.isNotBlank()) fields[p + "_cls"] = op
+            }
+        }
+        for (i in 1..5) {
+            val k = "tom$i"
+            if (f(k + "_cls").isBlank()) {
+                val sum = tomNum(fields, k + "_op") + tomNum(fields, k + "_rchg")
+                if (sum > 0) fields[k + "_cls"] = tomFmt(sum)
+            }
+        }
+    }
+
     val today = remember { SimpleDateFormat("EEEE, dd MMM yyyy", Locale.ENGLISH).format(Date()) }
+
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         SubHeader("TOM Data", "$today — Morning Shift", back)
-        MpCard {
-            Row(Modifier.fillMaxWidth().padding(bottom = 6.dp)) {
-                listOf("TOM" to 1.1f, "OPENING" to 1.2f, "CARDS" to 0.8f, "CLOSING" to 1.1f).forEach { (t, w) ->
-                    Text(t, color = White60, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(w))
-                }
-            }
-            val rows = listOf(
-                listOf("TOM 1", "12,450", "38", "18,940"),
-                listOf("TOM 2", "9,870", "31", "15,220"),
-                listOf("TOM 3", "11,300", "27", "16,610"),
-                listOf("TOM 4", "8,540", "19", "12,480"),
-                listOf("TOM 5", "10,120", "13", "13,940")
-            )
-            rows.forEach { r ->
-                HorizontalDivider(color = Color(0x14FFFFFF))
-                Row(Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
-                    listOf(1.1f, 1.2f, 0.8f, 1.1f).forEachIndexed { i, w ->
-                        Text(r[i], color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(w))
-                    }
+
+        // Opening / Closing switch
+        Row(
+            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 10.dp).clip(RoundedCornerShape(999.dp))
+                .background(Forest2).border(1.dp, GoldBorder, RoundedCornerShape(999.dp)).padding(4.dp)
+        ) {
+            listOf("opening" to "Opening", "closing" to "Closing").forEach { (m, label) ->
+                val active = mode == m
+                Box(
+                    Modifier.weight(1f).clip(RoundedCornerShape(999.dp))
+                        .then(if (active) Modifier.background(GoldBrush) else Modifier)
+                        .clickable { mode = m; if (m == "closing") prefillClosing() }
+                        .padding(vertical = 9.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(label, color = if (active) Color.Black else White70, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
                 }
             }
         }
-        Spacer(Modifier.height(8.dp))
-        MpCard {
-            DarkField("Opening Balance — TOM 1", opening, { opening = it }, numeric = true)
-            DarkField("Cards Sold", cards, { cards = it }, numeric = true)
-            DarkField("Notes (optional)", if (notes.isEmpty()) "Add a note" else notes, { notes = it }, placeholder = notes.isEmpty())
+
+        val savedAt = if (mode == "opening") openingSavedAt else closingSavedAt
+        Text(
+            if (savedAt != null) "✓ Saved — $savedAt" else "Not saved yet",
+            color = if (savedAt != null) Gold1 else White60, fontSize = 12.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 22.dp, top = 10.dp)
+        )
+
+        if (mode == "opening") {
+            Spacer(Modifier.height(6.dp))
+            MpCard {
+                Text("BOP Roll", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 10.dp))
+                TomNumField("Opening", f("bop_op")) { set("bop_op", it) }
+                TomNumField("Receive", f("bop_recv")) { set("bop_recv", it) }
+                TomNumField("Distribute", f("bop_dist")) { set("bop_dist", it) }
+                TomNumField("BOP Sale Slips", f("bop_slips")) { set("bop_slips", it) }
+            }
+            for (i in 1..5) {
+                val k = "tom$i"
+                Spacer(Modifier.height(4.dp))
+                MpCard {
+                    Text("TOM $i", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 10.dp))
+                    TomNumField("Opening", f(k + "_op")) { set(k + "_op", it) }
+                    TomNumField("Recharge", f(k + "_rchg")) { set(k + "_rchg", it) }
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            MpCard {
+                Text("TOM Roll", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 10.dp))
+                TomNumField("Opening", f("roll_op")) { set("roll_op", it) }
+                TomNumField("Receive", f("roll_recv")) { set("roll_recv", it) }
+                TomNumField("Distribute", f("roll_dist")) { set("roll_dist", it) }
+            }
+            Spacer(Modifier.height(4.dp))
+            MpCard {
+                Text("TKM Roll", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 10.dp))
+                TomNumField("Opening", f("tkm_op")) { set("tkm_op", it) }
+                TomNumField("Receive", f("tkm_recv")) { set("tkm_recv", it) }
+                TomNumField("Distribute", f("tkm_dist")) { set("tkm_dist", it) }
+            }
+            Spacer(Modifier.height(12.dp))
+            GoldButton("Save Opening") {
+                val data = fields.filterKeys { it.endsWith("_op") || it.endsWith("_recv") || it.endsWith("_dist") || it.endsWith("_rchg") || it == "bop_slips" }
+                TomStore.save(context, "opening", data)
+                openingSavedAt = TomStore.savedAt(context, "opening")
+                Toast.makeText(context, "Opening saved", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Spacer(Modifier.height(6.dp))
+            // Closing — hisaab khud auto hota hai (Metro+ formula)
+            MpCard {
+                Text("BOP Roll", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 10.dp))
+                TomNumField("Closing", f("bop_cls")) { set("bop_cls", it) }
+                val used = if (f("bop_cls").isNotBlank()) maxOf(0.0, (tomNum(fields, "bop_op") + tomNum(fields, "bop_recv") - tomNum(fields, "bop_dist")) - tomNum(fields, "bop_cls")) else 0.0
+                val amt = tomNum(fields, "bop_slips") * 30
+                AutoRow("Used", tomFmt(used))
+                AutoRow("BOP Sale Amount", "Rs ${tomFmt(amt)}")
+            }
+            for (i in 1..5) {
+                val k = "tom$i"
+                Spacer(Modifier.height(4.dp))
+                MpCard {
+                    Text("TOM $i", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 10.dp))
+                    TomNumField("Closing", f(k + "_cls")) { set(k + "_cls", it) }
+                    val sale = if (f(k + "_cls").isNotBlank()) maxOf(0.0, (tomNum(fields, k + "_op") + tomNum(fields, k + "_rchg")) - tomNum(fields, k + "_cls")) else 0.0
+                    val slips = if (sale > 0) Math.round((sale / 30) * 10) / 10.0 else 0.0
+                    AutoRow("Sale", "Rs ${tomFmt(sale)}")
+                    AutoRow("Slips", tomFmt(slips))
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            MpCard {
+                Text("TOM Roll", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 10.dp))
+                TomNumField("Closing", f("roll_cls")) { set("roll_cls", it) }
+                val used = if (f("roll_cls").isNotBlank()) maxOf(0.0, (tomNum(fields, "roll_op") + tomNum(fields, "roll_recv") - tomNum(fields, "roll_dist")) - tomNum(fields, "roll_cls")) else 0.0
+                AutoRow("Used", tomFmt(used))
+            }
+            Spacer(Modifier.height(4.dp))
+            MpCard {
+                Text("TKM Roll", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 10.dp))
+                TomNumField("Closing", f("tkm_cls")) { set("tkm_cls", it) }
+                val used = if (f("tkm_cls").isNotBlank()) maxOf(0.0, (tomNum(fields, "tkm_op") + tomNum(fields, "tkm_recv") - tomNum(fields, "tkm_dist")) - tomNum(fields, "tkm_cls")) else 0.0
+                AutoRow("Used", tomFmt(used))
+            }
+            Spacer(Modifier.height(12.dp))
+            GoldButton("Save & Lock Closing") {
+                val data = fields.filterKeys { it.endsWith("_cls") || it == "bop_slips" }
+                TomStore.save(context, "closing", data)
+                closingSavedAt = TomStore.savedAt(context, "closing")
+                Toast.makeText(context, "Closing saved", Toast.LENGTH_SHORT).show()
+            }
         }
-        Spacer(Modifier.height(10.dp))
-        GoldButton("Save TOM Data") { Toast.makeText(context, "Feature coming in next update — GUI test build", Toast.LENGTH_SHORT).show() }
-        GhostButton("Share on WhatsApp") { Toast.makeText(context, "Feature coming in next update — GUI test build", Toast.LENGTH_SHORT).show() }
+        GhostButton("Share on WhatsApp") { Toast.makeText(context, "WhatsApp report agli update me aayega", Toast.LENGTH_SHORT).show() }
         Spacer(Modifier.height(20.dp))
+    }
+}
+
+@Composable
+fun AutoRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = White60, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+        Text(value, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold, style = TextStyle(brush = GoldBrush))
     }
 }
 
