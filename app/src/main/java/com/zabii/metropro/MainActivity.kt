@@ -19,6 +19,7 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.background
@@ -77,8 +78,8 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
-private const val CURRENT_VERSION_CODE = 3
-private const val CURRENT_VERSION_NAME = "1.2"
+private const val CURRENT_VERSION_CODE = 4
+private const val CURRENT_VERSION_NAME = "1.3"
 private const val VERSION_URL = "https://maryanrajput72-bot.github.io/metro-pro/version.json"
 
 private val Forest1 = Color(0xFF0D2818)
@@ -579,64 +580,86 @@ fun HomeScreen(go: (Screen) -> Unit, openDrawer: () -> Unit) {
     }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        // Header — profile photo pe tap = drawer khulega
+        // Header — greeting + profile photo (tap = drawer) + bell
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Image(
                 painterResource(R.drawable.logo), contentDescription = "Profile — drawer kholo",
-                Modifier.size(50.dp).clip(CircleShape).border(2.dp, Gold1, CircleShape).clickable { openDrawer() },
+                Modifier.size(48.dp).clip(CircleShape).border(2.dp, Gold1, CircleShape).clickable { openDrawer() },
                 contentScale = ContentScale.Crop
             )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(
-                    "MetroPro", fontSize = 21.sp, fontWeight = FontWeight.ExtraBold,
-                    style = TextStyle(brush = GoldBrush)
-                )
-                Text("Daily Work App", color = White70, fontSize = 12.sp)
+                Text("Assalam-o-Alaikum", color = White70, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text(pname, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             }
             Box(
-                Modifier.size(42.dp).clip(CircleShape).background(Forest2).border(1.dp, Color(0x73FFD700), CircleShape),
+                Modifier.size(44.dp).clip(CircleShape).background(Forest2).border(1.dp, Color(0x73FFD700), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Filled.Notifications, contentDescription = null, tint = Gold1, modifier = Modifier.size(20.dp))
-                Box(Modifier.size(8.dp).clip(CircleShape).background(GoldBrush).align(Alignment.TopEnd).padding(0.dp).offset(x = (-9).dp, y = 9.dp))
+                Icon(Icons.Filled.Notifications, contentDescription = null, tint = Gold1, modifier = Modifier.size(21.dp))
+                Box(Modifier.size(9.dp).clip(CircleShape).background(GoldBrush).align(Alignment.TopEnd).offset(x = (-8).dp, y = 8.dp))
             }
         }
-        // Hero (Golden — black text)
-        Column(
-            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 14.dp).clip(RoundedCornerShape(24.dp))
-                .background(GoldBrush).padding(20.dp)
+
+        // Hero banner — 3D metro train (reference style, Metro rang)
+        Box(
+            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp).clip(RoundedCornerShape(26.dp))
+                .background(GoldBrush)
         ) {
-            Text("Assalam-o-Alaikum", color = Color.Black.copy(alpha = 0.75f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Text(pname, color = Color.Black, fontSize = 23.sp, fontWeight = FontWeight.ExtraBold)
-            Row(Modifier.padding(top = 12.dp)) {
-                Box(Modifier.clip(RoundedCornerShape(999.dp)).border(1.6.dp, Color.Black.copy(alpha = 0.55f), RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 5.dp)) {
-                    Text(pstation, color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Row(Modifier.fillMaxWidth().padding(start = 18.dp, top = 16.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1.05f)) {
+                    Box(Modifier.clip(RoundedCornerShape(999.dp)).background(Color.Black).padding(horizontal = 10.dp, vertical = 4.dp)) {
+                        Text("METRO STATION", color = Gold1, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                    }
+                    Text(pstation, color = Color.Black, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 24.sp, modifier = Modifier.padding(top = 8.dp))
+                    Text("$pshift — Opening, Closing, Reports sab ek jagah", color = Color.Black.copy(alpha = 0.72f), fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, lineHeight = 15.sp, modifier = Modifier.padding(top = 4.dp))
+                    Box(
+                        Modifier.padding(top = 12.dp).clip(RoundedCornerShape(999.dp)).background(Color.Black)
+                            .clickable { go(Screen.Tom) }.padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Text("Open TOM Data  →", color = Gold1, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                    }
                 }
-                Spacer(Modifier.width(8.dp))
-                Box(Modifier.clip(RoundedCornerShape(999.dp)).background(Color.Black).padding(horizontal = 12.dp, vertical = 5.dp)) {
-                    Text(pshift, color = Gold1, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-            Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column {
-                    Text("TODAY", color = Color.Black.copy(alpha = 0.65f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    Text(today, color = Color.Black, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text("STATUS", color = Color.Black.copy(alpha = 0.65f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    Text("On Duty ●", color = Color.Black, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-                }
+                Image(
+                    painterResource(R.drawable.hero_train), contentDescription = "Metro train",
+                    Modifier.weight(1f).height(132.dp).padding(end = 10.dp).clip(RoundedCornerShape(18.dp)),
+                    contentScale = ContentScale.Crop
+                )
             }
         }
-        // Quick access
-        SectionTitle("Quick Access")
-        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            QuickCard("Money Calculator", Icons.Filled.ShoppingCart, Modifier.weight(1f)) { go(Screen.Calc) }
-            QuickCard("TOM Data", Icons.Filled.Create, Modifier.weight(1f)) { go(Screen.Tom) }
-            QuickCard("GPS Camera", Icons.Filled.LocationOn, Modifier.weight(1f)) { go(Screen.Camera) }
-            QuickCard("GCS Portal", Icons.Filled.Place, Modifier.weight(1f)) { go(Screen.Portal) }
+        Text(today, color = White60, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 22.dp, top = 8.dp))
+
+        // Category circles — 3D pictures
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 20.dp, end = 8.dp, top = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            CatCircle(R.drawable.icon3d_tom, "TOM Data") { go(Screen.Tom) }
+            CatCircle(R.drawable.icon3d_calc, "Calculator") { go(Screen.Calc) }
+            CatCircle(R.drawable.icon3d_camera, "GPS Camera") { go(Screen.Camera) }
+            CatCircle(R.drawable.icon3d_portal, "GCS Portal") { go(Screen.Portal) }
+            CatCircle(R.drawable.icon3d_report, "Reports") { go(Screen.Reports) }
+            CatCircle(R.drawable.icon3d_complaint, "Complaint") { go(Screen.Complaint) }
+            CatCircle(R.drawable.icon3d_attendance, "Attendance") { go(Screen.Attendance) }
         }
+
+        // Quick Services — bare cards, 3D pictures ke sath
+        Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(5.dp).height(18.dp).clip(RoundedCornerShape(3.dp)).background(GoldBrush))
+            Spacer(Modifier.width(10.dp))
+            Text("Quick Services", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text("View All →", fontSize = 12.sp, fontWeight = FontWeight.Bold, style = TextStyle(brush = GoldBrush), modifier = Modifier.clickable { openDrawer() })
+        }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ServiceCard(R.drawable.icon3d_tom, "TOM Data", "Opening • Closing register", Modifier.weight(1f)) { go(Screen.Tom) }
+            ServiceCard(R.drawable.icon3d_calc, "Money Calculator", "Notes gin ke total", Modifier.weight(1f)) { go(Screen.Calc) }
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ServiceCard(R.drawable.icon3d_camera, "GPS Camera", "Stamp wali photos", Modifier.weight(1f)) { go(Screen.Camera) }
+            ServiceCard(R.drawable.icon3d_portal, "GCS Portal", "Portal yahan khulega", Modifier.weight(1f)) { go(Screen.Portal) }
+        }
+
         // Today's Summary — Opening upar, Closing neeche (uski spec)
         SectionTitle("Today's Summary")
         MpCard {
@@ -644,7 +667,6 @@ fun HomeScreen(go: (Screen) -> Unit, openDrawer: () -> Unit) {
                 Text("Station Overview", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 Text(pstation, fontSize = 12.sp, fontWeight = FontWeight.Bold, style = TextStyle(brush = GoldBrush))
             }
-            // OPENING
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("OPENING", color = Gold1, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
                 Text(if (opAt != null) "Saved — $opAt" else "Not saved", color = if (opAt != null) White70 else White60, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
@@ -655,7 +677,6 @@ fun HomeScreen(go: (Screen) -> Unit, openDrawer: () -> Unit) {
                 SummaryStat(tomFmt(sumBopSlips), "BOP Slips", Modifier.weight(1f))
             }
             HorizontalDivider(color = Color(0x14FFFFFF), modifier = Modifier.padding(vertical = 14.dp))
-            // CLOSING
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("CLOSING", color = Gold1, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
                 Text(if (clAt != null) "Saved — $clAt" else "Not saved", color = if (clAt != null) White70 else White60, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
@@ -666,18 +687,76 @@ fun HomeScreen(go: (Screen) -> Unit, openDrawer: () -> Unit) {
                 SummaryStat(tomFmt(sumSlips), "Slips", Modifier.weight(1f))
             }
         }
-        // More options — Settings yahan NAHI hai (sirf drawer ke andar hai)
+
+        // Bottom banner — Reports (gold)
+        Box(
+            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 14.dp).clip(RoundedCornerShape(24.dp))
+                .background(GoldBrush).pressScale { go(Screen.Reports) }
+        ) {
+            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Image(
+                    painterResource(R.drawable.icon3d_report), contentDescription = null,
+                    Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)), contentScale = ContentScale.Crop
+                )
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Daily Reports", color = Color.Black, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("Closing report WhatsApp pe bhejo", color = Color.Black.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Box(Modifier.clip(RoundedCornerShape(999.dp)).background(Color.Black).padding(horizontal = 13.dp, vertical = 8.dp)) {
+                    Text("Open →", color = Gold1, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                }
+            }
+        }
+
+        // More options
         SectionTitle("More Options")
-        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GridCard("Attendance", "Staff record", Icons.Filled.CheckCircle, Modifier.weight(1f)) { go(Screen.Attendance) }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            ServiceCard(R.drawable.icon3d_attendance, "Attendance", "Staff record", Modifier.weight(1f)) { go(Screen.Attendance) }
+            ServiceCard(R.drawable.icon3d_complaint, "Complaint", "Send to TL", Modifier.weight(1f)) { go(Screen.Complaint) }
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            GridCard("My Profile", "Account detail", Icons.Filled.Person, Modifier.weight(1f)) { go(Screen.Profile) }
             GridCard("Reports", "Daily & closing", Icons.Filled.List, Modifier.weight(1f)) { go(Screen.Reports) }
         }
-        Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GridCard("Complaint", "Send to TL", Icons.Filled.Warning, Modifier.weight(1f)) { go(Screen.Complaint) }
-            GridCard("My Profile", "Account detail", Icons.Filled.Person, Modifier.weight(1f)) { go(Screen.Profile) }
-        }
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+fun CatCircle(img: Int, label: String, onClick: () -> Unit) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Image(
+            painterResource(img), contentDescription = label,
+            Modifier.size(62.dp).clip(CircleShape).border(1.5.dp, Gold1, CircleShape).pressScale(onClick),
+            contentScale = ContentScale.Crop
+        )
+        Text(label, color = White70, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
+    }
+}
+
+@Composable
+fun ServiceCard(img: Int, title: String, sub: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Column(
+        modifier.clip(RoundedCornerShape(20.dp)).background(Forest2).border(1.dp, GoldBorder, RoundedCornerShape(20.dp))
+            .pressScale(onClick).padding(10.dp)
+    ) {
+        Image(
+            painterResource(img), contentDescription = title,
+            Modifier.fillMaxWidth().height(86.dp).clip(RoundedCornerShape(14.dp)),
+            contentScale = ContentScale.Crop
+        )
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 16.sp)
+                Text(sub, color = White60, fontSize = 10.5.sp, lineHeight = 13.sp)
+            }
+            Box(
+                Modifier.size(28.dp).clip(CircleShape).background(GoldBrush),
+                contentAlignment = Alignment.Center
+            ) { Text("+", color = Color.Black, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold) }
+        }
     }
 }
 
@@ -752,25 +831,47 @@ object TomStore {
 fun tomNum(map: Map<String, String>, key: String): Double = map[key]?.replace(",", "")?.toDoubleOrNull() ?: 0.0
 fun tomFmt(v: Double): String = if (v % 1.0 == 0.0) "%,d".format(v.toInt()) else "%,.1f".format(v)
 
+/* ---------------- TOM Data — compact, ek screen pe sab (scroll nahi) ---------------- */
+
 @Composable
-fun TomNumField(label: String, value: String, onChange: (String) -> Unit) {
-    Column(Modifier.padding(bottom = 10.dp)) {
-        Text(label, color = White70, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 5.dp))
+fun TomMiniField(label: String, value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(label, color = White60, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 3.dp))
         BasicTextField(
             value = value,
             onValueChange = { onChange(it.filter { ch -> ch.isDigit() || ch == '.' }) },
-            textStyle = TextStyle(color = Color.White, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold),
+            textStyle = TextStyle(color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold),
             cursorBrush = SolidColor(Gold1),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             singleLine = true,
             decorationBox = { inner ->
                 Box(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Forest1)
-                        .border(1.dp, Color(0x4DFFD700), RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 11.dp)
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Forest1)
+                        .border(1.dp, Color(0x4DFFD700), RoundedCornerShape(10.dp)).padding(horizontal = 8.dp, vertical = 8.dp)
                 ) { inner() }
             }
         )
     }
+}
+
+@Composable
+fun TomMiniStat(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text(label, color = White60, fontSize = 9.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 3.dp))
+        Box(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0x1AFFD700))
+                .border(1.dp, Color(0x33FFD700), RoundedCornerShape(10.dp)).padding(horizontal = 8.dp, vertical = 8.dp)
+        ) { Text(value, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold, style = TextStyle(brush = GoldBrush)) }
+    }
+}
+
+@Composable
+fun TomCompactCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(RoundedCornerShape(16.dp))
+            .background(Forest2).border(1.dp, GoldBorder, RoundedCornerShape(16.dp)).padding(horizontal = 12.dp, vertical = 10.dp),
+        content = content
+    )
 }
 
 @Composable
@@ -785,7 +886,6 @@ fun TomScreen(back: () -> Unit) {
     LaunchedEffect(Unit) {
         fields.putAll(TomStore.load(context, "opening"))
         val cls = TomStore.load(context, "closing")
-        // closing ke sirf *_cls keys — opening ki values in se kabhi overwrite nahi hoteen
         cls.forEach { (k, v) -> if (k.endsWith("_cls") || k == "bop_slips") fields[k] = v }
         openingSavedAt = TomStore.savedAt(context, "opening")
         closingSavedAt = TomStore.savedAt(context, "closing")
@@ -794,9 +894,6 @@ fun TomScreen(back: () -> Unit) {
     fun f(key: String) = fields[key] ?: ""
     fun set(key: String, v: String) { fields[key] = v }
 
-    // Closing pe pehli dafa jao to khaali closing opening se bhar do (Metro+ rule):
-    // rolls: closing = opening; TOM machines: closing = opening + recharge.
-    // Jo closing pehle se saved/typed hai, wo kabhi nahi badlegi.
     fun prefillClosing() {
         if (prefilled) return
         prefilled = true
@@ -814,15 +911,38 @@ fun TomScreen(back: () -> Unit) {
         }
     }
 
-    val today = remember { SimpleDateFormat("EEEE, dd MMM yyyy", Locale.ENGLISH).format(Date()) }
+    fun rollUsed(pre: String): Double =
+        if (f(pre + "_cls").isNotBlank())
+            maxOf(0.0, (tomNum(fields, pre + "_op") + tomNum(fields, pre + "_recv") - tomNum(fields, pre + "_dist")) - tomNum(fields, pre + "_cls")) else 0.0
+    fun tomSale(k: String): Double =
+        if (f(k + "_cls").isNotBlank()) maxOf(0.0, (tomNum(fields, k + "_op") + tomNum(fields, k + "_rchg")) - tomNum(fields, k + "_cls")) else 0.0
+    fun tomSlips(k: String): Double { val sl = tomSale(k); return if (sl > 0) Math.round((sl / 30) * 10) / 10.0 else 0.0 }
 
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        SubHeader("TOM Data", "$today — Morning Shift", back)
+    val today = remember { SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(Date()) }
+    val savedAt = if (mode == "opening") openingSavedAt else closingSavedAt
+
+    Column(Modifier.fillMaxSize()) {
+        // Compact header
+        Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(36.dp).clip(CircleShape).background(GoldBrush).clickable { back() },
+                contentAlignment = Alignment.Center
+            ) { Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = Color.Black, modifier = Modifier.size(17.dp)) }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text("TOM Data", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+                Text(today, color = White60, fontSize = 11.sp)
+            }
+            Text(
+                if (savedAt != null) "✓ Saved $savedAt" else "Not saved",
+                color = if (savedAt != null) Gold1 else White60, fontSize = 11.5.sp, fontWeight = FontWeight.Bold
+            )
+        }
 
         // Opening / Closing switch
         Row(
-            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 10.dp).clip(RoundedCornerShape(999.dp))
-                .background(Forest2).border(1.dp, GoldBorder, RoundedCornerShape(999.dp)).padding(4.dp)
+            Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp).clip(RoundedCornerShape(999.dp))
+                .background(Forest2).border(1.dp, GoldBorder, RoundedCornerShape(999.dp)).padding(3.dp)
         ) {
             listOf("opening" to "Opening", "closing" to "Closing").forEach { (m, label) ->
                 val active = mode == m
@@ -830,115 +950,98 @@ fun TomScreen(back: () -> Unit) {
                     Modifier.weight(1f).clip(RoundedCornerShape(999.dp))
                         .then(if (active) Modifier.background(GoldBrush) else Modifier)
                         .clickable { mode = m; if (m == "closing") prefillClosing() }
-                        .padding(vertical = 9.dp),
+                        .padding(vertical = 7.dp),
                     contentAlignment = Alignment.Center
-                ) {
-                    Text(label, color = if (active) Color.Black else White70, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-                }
+                ) { Text(label, color = if (active) Color.Black else White70, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold) }
             }
         }
 
-        val savedAt = if (mode == "opening") openingSavedAt else closingSavedAt
-        Text(
-            if (savedAt != null) "✓ Saved — $savedAt" else "Not saved yet",
-            color = if (savedAt != null) Gold1 else White60, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 22.dp, top = 10.dp)
-        )
+        Spacer(Modifier.height(6.dp))
 
         if (mode == "opening") {
-            Spacer(Modifier.height(6.dp))
-            MpCard {
-                Text("BOP Roll", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 10.dp))
-                TomNumField("Opening", f("bop_op")) { set("bop_op", it) }
-                TomNumField("Receive", f("bop_recv")) { set("bop_recv", it) }
-                TomNumField("Distribute", f("bop_dist")) { set("bop_dist", it) }
-                TomNumField("BOP Sale Slips", f("bop_slips")) { set("bop_slips", it) }
-            }
-            for (i in 1..5) {
-                val k = "tom$i"
-                Spacer(Modifier.height(4.dp))
-                MpCard {
-                    Text("TOM $i", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 10.dp))
-                    TomNumField("Opening", f(k + "_op")) { set(k + "_op", it) }
-                    TomNumField("Recharge", f(k + "_rchg")) { set(k + "_rchg", it) }
+            TomCompactCard("BOP Roll") {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TomMiniField("Opening", f("bop_op"), { set("bop_op", it) }, Modifier.weight(1f))
+                    TomMiniField("Receive", f("bop_recv"), { set("bop_recv", it) }, Modifier.weight(1f))
+                    TomMiniField("Distribute", f("bop_dist"), { set("bop_dist", it) }, Modifier.weight(1f))
+                    TomMiniField("Sale Slips", f("bop_slips"), { set("bop_slips", it) }, Modifier.weight(1f))
                 }
             }
-            Spacer(Modifier.height(4.dp))
-            MpCard {
-                Text("TOM Roll", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 10.dp))
-                TomNumField("Opening", f("roll_op")) { set("roll_op", it) }
-                TomNumField("Receive", f("roll_recv")) { set("roll_recv", it) }
-                TomNumField("Distribute", f("roll_dist")) { set("roll_dist", it) }
+            TomCompactCard("TOM Machines") {
+                for (i in 1..5) {
+                    val k = "tom$i"
+                    Row(Modifier.padding(top = if (i > 1) 6.dp else 0.dp), verticalAlignment = Alignment.Bottom) {
+                        Text("TOM $i", color = Gold1, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(46.dp).padding(bottom = 9.dp))
+                        TomMiniField("Opening", f(k + "_op"), { set(k + "_op", it) }, Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
+                        TomMiniField("Recharge", f(k + "_rchg"), { set(k + "_rchg", it) }, Modifier.weight(1f))
+                    }
+                }
             }
-            Spacer(Modifier.height(4.dp))
-            MpCard {
-                Text("TKM Roll", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 10.dp))
-                TomNumField("Opening", f("tkm_op")) { set("tkm_op", it) }
-                TomNumField("Receive", f("tkm_recv")) { set("tkm_recv", it) }
-                TomNumField("Distribute", f("tkm_dist")) { set("tkm_dist", it) }
+            TomCompactCard("Rolls") {
+                listOf("roll" to "TOM Roll", "tkm" to "TKM Roll").forEachIndexed { idx, (pre, label) ->
+                    Row(Modifier.padding(top = if (idx > 0) 8.dp else 0.dp), verticalAlignment = Alignment.Bottom) {
+                        Text(label, color = Gold1, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(62.dp).padding(bottom = 9.dp))
+                        TomMiniField("Opening", f(pre + "_op"), { set(pre + "_op", it) }, Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
+                        TomMiniField("Receive", f(pre + "_recv"), { set(pre + "_recv", it) }, Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
+                        TomMiniField("Distribute", f(pre + "_dist"), { set(pre + "_dist", it) }, Modifier.weight(1f))
+                    }
+                }
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.weight(1f))
             GoldButton("Save Opening") {
                 val data = fields.filterKeys { it.endsWith("_op") || it.endsWith("_recv") || it.endsWith("_dist") || it.endsWith("_rchg") || it == "bop_slips" }
                 TomStore.save(context, "opening", data)
                 openingSavedAt = TomStore.savedAt(context, "opening")
                 Toast.makeText(context, "Opening saved", Toast.LENGTH_SHORT).show()
             }
+            Spacer(Modifier.height(10.dp))
         } else {
-            Spacer(Modifier.height(6.dp))
-            // Closing — hisaab khud auto hota hai (Metro+ formula)
-            MpCard {
-                Text("BOP Roll", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 10.dp))
-                TomNumField("Closing", f("bop_cls")) { set("bop_cls", it) }
-                val used = if (f("bop_cls").isNotBlank()) maxOf(0.0, (tomNum(fields, "bop_op") + tomNum(fields, "bop_recv") - tomNum(fields, "bop_dist")) - tomNum(fields, "bop_cls")) else 0.0
-                val amt = tomNum(fields, "bop_slips") * 30
-                AutoRow("Used", tomFmt(used))
-                AutoRow("BOP Sale Amount", "Rs ${tomFmt(amt)}")
-            }
-            for (i in 1..5) {
-                val k = "tom$i"
-                Spacer(Modifier.height(4.dp))
-                MpCard {
-                    Text("TOM $i", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 10.dp))
-                    TomNumField("Closing", f(k + "_cls")) { set(k + "_cls", it) }
-                    val sale = if (f(k + "_cls").isNotBlank()) maxOf(0.0, (tomNum(fields, k + "_op") + tomNum(fields, k + "_rchg")) - tomNum(fields, k + "_cls")) else 0.0
-                    val slips = if (sale > 0) Math.round((sale / 30) * 10) / 10.0 else 0.0
-                    AutoRow("Sale", "Rs ${tomFmt(sale)}")
-                    AutoRow("Slips", tomFmt(slips))
+            TomCompactCard("BOP Roll") {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TomMiniField("Closing", f("bop_cls"), { set("bop_cls", it) }, Modifier.weight(1f))
+                    TomMiniStat("Used", tomFmt(rollUsed("bop")), Modifier.weight(1f))
+                    TomMiniStat("Sale Amount", "Rs ${tomFmt(tomNum(fields, "bop_slips") * 30)}", Modifier.weight(1.2f))
                 }
             }
-            Spacer(Modifier.height(4.dp))
-            MpCard {
-                Text("TOM Roll", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 10.dp))
-                TomNumField("Closing", f("roll_cls")) { set("roll_cls", it) }
-                val used = if (f("roll_cls").isNotBlank()) maxOf(0.0, (tomNum(fields, "roll_op") + tomNum(fields, "roll_recv") - tomNum(fields, "roll_dist")) - tomNum(fields, "roll_cls")) else 0.0
-                AutoRow("Used", tomFmt(used))
+            TomCompactCard("TOM Machines") {
+                for (i in 1..5) {
+                    val k = "tom$i"
+                    Row(Modifier.padding(top = if (i > 1) 6.dp else 0.dp), verticalAlignment = Alignment.Bottom) {
+                        Text("TOM $i", color = Gold1, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(46.dp).padding(bottom = 9.dp))
+                        TomMiniField("Closing", f(k + "_cls"), { set(k + "_cls", it) }, Modifier.weight(1.1f))
+                        Spacer(Modifier.width(8.dp))
+                        TomMiniStat("Sale", "Rs ${tomFmt(tomSale(k))}", Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
+                        TomMiniStat("Slips", tomFmt(tomSlips(k)), Modifier.weight(0.7f))
+                    }
+                }
             }
-            Spacer(Modifier.height(4.dp))
-            MpCard {
-                Text("TKM Roll", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 10.dp))
-                TomNumField("Closing", f("tkm_cls")) { set("tkm_cls", it) }
-                val used = if (f("tkm_cls").isNotBlank()) maxOf(0.0, (tomNum(fields, "tkm_op") + tomNum(fields, "tkm_recv") - tomNum(fields, "tkm_dist")) - tomNum(fields, "tkm_cls")) else 0.0
-                AutoRow("Used", tomFmt(used))
+            TomCompactCard("Rolls") {
+                listOf("roll" to "TOM Roll", "tkm" to "TKM Roll").forEachIndexed { idx, (pre, label) ->
+                    Row(Modifier.padding(top = if (idx > 0) 8.dp else 0.dp), verticalAlignment = Alignment.Bottom) {
+                        Text(label, color = Gold1, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(62.dp).padding(bottom = 9.dp))
+                        TomMiniField("Closing", f(pre + "_cls"), { set(pre + "_cls", it) }, Modifier.weight(1f))
+                        Spacer(Modifier.width(8.dp))
+                        TomMiniStat("Used", tomFmt(rollUsed(pre)), Modifier.weight(1f))
+                    }
+                }
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.weight(1f))
             GoldButton("Save & Lock Closing") {
                 val data = fields.filterKeys { it.endsWith("_cls") || it == "bop_slips" }
                 TomStore.save(context, "closing", data)
                 closingSavedAt = TomStore.savedAt(context, "closing")
                 Toast.makeText(context, "Closing saved", Toast.LENGTH_SHORT).show()
             }
+            Text(
+                "WhatsApp report agli bari me ayega",
+                color = White60, fontSize = 11.sp, textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp, top = 2.dp)
+            )
         }
-        GhostButton("Share on WhatsApp") { Toast.makeText(context, "WhatsApp report agli update me aayega", Toast.LENGTH_SHORT).show() }
-        Spacer(Modifier.height(20.dp))
-    }
-}
-
-@Composable
-fun AutoRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = White60, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
-        Text(value, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold, style = TextStyle(brush = GoldBrush))
     }
 }
 
