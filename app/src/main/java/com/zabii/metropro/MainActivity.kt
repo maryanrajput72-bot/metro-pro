@@ -78,8 +78,8 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
-private const val CURRENT_VERSION_CODE = 4
-private const val CURRENT_VERSION_NAME = "1.3"
+private const val CURRENT_VERSION_CODE = 5
+private const val CURRENT_VERSION_NAME = "1.4"
 private const val VERSION_URL = "https://maryanrajput72-bot.github.io/metro-pro/version.json"
 
 private val Forest1 = Color(0xFF0D2818)
@@ -621,7 +621,7 @@ fun HomeScreen(go: (Screen) -> Unit, openDrawer: () -> Unit) {
                     }
                 }
                 Image(
-                    painterResource(R.drawable.hero_train), contentDescription = "Metro train",
+                    painterResource(R.drawable.hero_bus), contentDescription = "Metro bus",
                     Modifier.weight(1f).height(132.dp).padding(end = 10.dp).clip(RoundedCornerShape(18.dp)),
                     contentScale = ContentScale.Crop
                 )
