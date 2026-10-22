@@ -1,0 +1,28 @@
+pluginManagement {
+    resolutionStrategy {
+        // The Gradle Plugin Portal mirror is unreachable; resolve markers
+        // directly to their modules on Google's Maven / Maven Central.
+        eachPlugin {
+            if (requested.id.id == "com.android.application") {
+                useModule("com.android.tools.build:gradle:${requested.version}")
+            } else if (requested.id.id.startsWith("org.jetbrains.kotlin.")) {
+                useModule("org.jetbrains.kotlin:kotlin-gradle-plugin:${requested.version}")
+            }
+        }
+    }
+    repositories {
+        // Fully offline: everything served from a local copy of the Gradle cache.
+        // (The sandbox blocks Java HTTP, so the localhost bridge is unusable from Gradle.)
+        maven { url = uri("file:///home/hatch/workspace/local-maven-repo") }
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        // Fully offline: everything served from a local copy of the Gradle cache.
+        // (The sandbox blocks Java HTTP, so the localhost bridge is unusable from Gradle.)
+        maven { url = uri("file:///home/hatch/workspace/local-maven-repo") }
+    }
+}
+rootProject.name = "MetroPro"
+include(":app")
