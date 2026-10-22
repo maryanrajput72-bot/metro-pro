@@ -1,10 +1,16 @@
 package com.zabii.metropro
 
+import android.app.Activity
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -12,6 +18,9 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -50,6 +59,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -66,8 +77,8 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
-private const val CURRENT_VERSION_CODE = 2
-private const val CURRENT_VERSION_NAME = "1.1"
+private const val CURRENT_VERSION_CODE = 3
+private const val CURRENT_VERSION_NAME = "1.2"
 private const val VERSION_URL = "https://maryanrajput72-bot.github.io/metro-pro/version.json"
 
 private val Forest1 = Color(0xFF0D2818)
@@ -108,7 +119,36 @@ fun AppShell() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var screen by remember { mutableStateOf(Screen.Home) }
+    val backStack = remember { mutableStateListOf<Screen>() }
+    var drawerOpen by remember { mutableStateOf(false) }
+    var lastHomeBack by remember { mutableStateOf(0L) }
     val updateState = remember { UpdateUiState() }
+
+    fun goTo(target: Screen) {
+        if (target == screen) return
+        if (target == Screen.Home) backStack.clear() else backStack.add(screen)
+        screen = target
+    }
+    fun navBack() {
+        if (backStack.isNotEmpty()) screen = backStack.removeAt(backStack.lastIndex)
+        else if (screen != Screen.Home) screen = Screen.Home
+    }
+
+    // ANDROID BACK RULE: har screen se pichli screen; Home pe double-press exit
+    BackHandler {
+        when {
+            drawerOpen -> drawerOpen = false
+            screen != Screen.Home -> navBack()
+            else -> {
+                val now = System.currentTimeMillis()
+                if (now - lastHomeBack < 2000) (context as? Activity)?.finish()
+                else {
+                    lastHomeBack = now
+                    Toast.makeText(context, "App band karne ke liye dobara back dabain", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
 
     fun startUpdate() {
         val info = updateState.latest ?: return
@@ -173,7 +213,22 @@ fun AppShell() {
         checkUpdate(auto = true)
     }
 
-    Box(Modifier.fillMaxSize().background(ForestBrush)) {
+    Box(
+        Modifier.fillMaxSize().background(ForestBrush)
+            .pointerInput(drawerOpen) {
+                var total = 0f
+                var startX = 0f
+                detectHorizontalDragGestures(
+                    onDragStart = { off -> total = 0f; startX = off.x },
+                    onHorizontalDrag = { _, amt -> total += amt },
+                    onDragEnd = {
+                        // Left kenare se right swipe = drawer; drawer khula ho to left swipe = band
+                        if (!drawerOpen && startX < 190f && total > 70f) drawerOpen = true
+                        else if (drawerOpen && total < -70f) drawerOpen = false
+                    }
+                )
+            }
+    ) {
         Column(Modifier.fillMaxSize()) {
             // Update banner (sirf jab kuch ho raha ho)
             if (updateState.phase == UpdatePhase.DOWNLOADING || updateState.phase == UpdatePhase.INSTALLING ||
@@ -200,31 +255,143 @@ fun AppShell() {
                 AnimatedContent(
                     targetState = screen,
                     transitionSpec = {
-                        (fadeIn(tween(320)) + slideInHorizontally(tween(320)) { it / 6 }) togetherWith
-                            (fadeOut(tween(220)) + slideOutHorizontally(tween(220)) { -it / 6 })
+                        (fadeIn(tween(360)) + slideInHorizontally(tween(360)) { it / 6 }) togetherWith
+                            (fadeOut(tween(240)) + slideOutHorizontally(tween(240)) { -it / 6 })
                     },
                     label = "screen"
                 ) { target ->
                     when (target) {
-                        Screen.Home -> HomeScreen(go = { screen = it })
-                        Screen.Tom -> TomScreen(back = { screen = Screen.Home })
-                        Screen.Camera -> CameraScreen(back = { screen = Screen.Home })
-                        Screen.Calc -> CalcScreen(back = { screen = Screen.Home })
-                        Screen.Reports -> ReportsScreen(back = { screen = Screen.Home })
-                        Screen.Profile -> ProfileScreen(back = { screen = Screen.Home }, go = { screen = it })
-                        Screen.Settings -> SettingsScreen(back = { screen = Screen.Home }, updateState = updateState, onCheck = { checkUpdate(auto = false) })
-                        Screen.Portal -> PortalScreen(back = { screen = Screen.Home })
-                        Screen.Attendance -> AttendanceScreen(back = { screen = Screen.Home })
-                        Screen.Complaint -> ComplaintScreen(back = { screen = Screen.Home })
+                        Screen.Home -> HomeScreen(go = { goTo(it) }, openDrawer = { drawerOpen = true })
+                        Screen.Tom -> TomScreen(back = { navBack() })
+                        Screen.Camera -> CameraScreen(back = { navBack() })
+                        Screen.Calc -> CalcScreen(back = { navBack() })
+                        Screen.Reports -> ReportsScreen(back = { navBack() })
+                        Screen.Profile -> ProfileScreen(back = { navBack() })
+                        Screen.Settings -> SettingsScreen(back = { navBack() }, updateState = updateState, onCheck = { checkUpdate(auto = false) })
+                        Screen.Portal -> PortalScreen(back = { navBack() })
+                        Screen.Attendance -> AttendanceScreen(back = { navBack() })
+                        Screen.Complaint -> ComplaintScreen(back = { navBack() })
                     }
                 }
             }
-            BottomNav(current = screen, go = { screen = it })
+            BottomNav(current = screen, go = { goTo(it) })
+        }
+
+        // ===== Profile Drawer (left slider) =====
+        AnimatedVisibility(visible = drawerOpen, enter = fadeIn(tween(200)), exit = fadeOut(tween(200))) {
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.55f)).clickable { drawerOpen = false })
+        }
+        AnimatedVisibility(
+            visible = drawerOpen,
+            enter = slideInHorizontally(tween(300)) { -it } + fadeIn(tween(200)),
+            exit = slideOutHorizontally(tween(260)) { -it } + fadeOut(tween(180))
+        ) {
+            DrawerContent(
+                go = { target -> drawerOpen = false; goTo(target) },
+                close = { drawerOpen = false }
+            )
         }
     }
 }
 
 /* ---------------- Shared components ---------------- */
+
+/* ===== Profile store + smooth press + drawer ===== */
+
+object ProfileStore {
+    private const val PREFS = "metropro_profile"
+    fun get(ctx: android.content.Context, key: String, def: String): String =
+        ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getString(key, def) ?: def
+    fun put(ctx: android.content.Context, key: String, value: String) {
+        ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit().putString(key, value).apply()
+    }
+    fun putAll(ctx: android.content.Context, values: Map<String, String>) {
+        val e = ctx.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).edit()
+        values.forEach { (k, v) -> e.putString(k, v) }
+        e.apply()
+    }
+}
+
+// Card dabane pe halki si smooth scale animation (smoothness)
+@Composable
+fun Modifier.pressScale(onClick: () -> Unit): Modifier {
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "pressScale"
+    )
+    return this.graphicsLayer { scaleX = scale; scaleY = scale }
+        .clickable(interactionSource = interaction, indication = null) { onClick() }
+}
+
+@Composable
+fun DrawerContent(go: (Screen) -> Unit, close: () -> Unit) {
+    val context = LocalContext.current
+    val name = remember { ProfileStore.get(context, "name", "Muhammad Aryan") }
+    val station = remember { ProfileStore.get(context, "station", "Shaheed-e-Millat") }
+    val shift = remember { ProfileStore.get(context, "shift", "Morning Shift") }
+    val items = listOf(
+        Triple(Screen.Home, "Home", Icons.Filled.Home),
+        Triple(Screen.Tom, "TOM Data", Icons.Filled.Create),
+        Triple(Screen.Camera, "GPS Camera", Icons.Filled.LocationOn),
+        Triple(Screen.Calc, "Money Calculator", Icons.Filled.ShoppingCart),
+        Triple(Screen.Reports, "Reports", Icons.Filled.List),
+        Triple(Screen.Attendance, "Attendance", Icons.Filled.CheckCircle),
+        Triple(Screen.Complaint, "Complaint", Icons.Filled.Warning),
+        Triple(Screen.Portal, "GCS Portal", Icons.Filled.Place)
+    )
+    Column(
+        Modifier.width(302.dp).fillMaxHeight().background(Forest2)
+    ) {
+        // Header — profile + settings icon (Settings sirf drawer ke andar)
+        Column(Modifier.fillMaxWidth().background(ForestBrush).padding(start = 18.dp, end = 12.dp, top = 20.dp, bottom = 16.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Image(
+                    painterResource(R.drawable.logo), contentDescription = null,
+                    Modifier.size(58.dp).clip(CircleShape).border(2.dp, Gold1, CircleShape), contentScale = ContentScale.Crop
+                )
+                Spacer(Modifier.weight(1f))
+                Box(
+                    Modifier.size(38.dp).clip(CircleShape).background(Forest1).border(1.dp, GoldBorder, CircleShape)
+                        .clickable { go(Screen.Settings) },
+                    contentAlignment = Alignment.Center
+                ) { Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = Gold1, modifier = Modifier.size(19.dp)) }
+            }
+            Text(name, color = Color.White, fontSize = 17.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
+            Text("$station — $shift", color = White70, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        }
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 8.dp)) {
+            items.forEach { (scr, label, icon) ->
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).pressScale { go(scr) }
+                        .padding(horizontal = 10.dp, vertical = 11.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    GoldIconBox(icon, size = 38, iconSize = 19, radius = 12)
+                    Spacer(Modifier.width(12.dp))
+                    Text(label, color = Color.White, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = Color(0xCCFFD700), modifier = Modifier.size(19.dp))
+                }
+            }
+        }
+        HorizontalDivider(color = Color(0x14FFFFFF))
+        Row(
+            Modifier.fillMaxWidth().pressScale { go(Screen.Settings) }.padding(horizontal = 20.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Filled.Settings, contentDescription = null, tint = Gold1, modifier = Modifier.size(21.dp))
+            Spacer(Modifier.width(12.dp))
+            Text("Settings", color = Color.White, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
+        }
+        Text(
+            "MetroPro v$CURRENT_VERSION_NAME — by Muneeb",
+            color = White60, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = 20.dp, bottom = 16.dp)
+        )
+    }
+}
 
 @Composable
 fun GoldIconBox(icon: ImageVector, size: Int = 44, iconSize: Int = 22, radius: Int = 14) {
@@ -369,14 +536,55 @@ fun BottomNav(current: Screen, go: (Screen) -> Unit) {
 /* ---------------- Home ---------------- */
 
 @Composable
-fun HomeScreen(go: (Screen) -> Unit) {
+fun HomeScreen(go: (Screen) -> Unit, openDrawer: () -> Unit) {
+    val context = LocalContext.current
     val today = remember { SimpleDateFormat("EEEE, dd MMM yyyy", Locale.ENGLISH).format(Date()) }
+    val pname = remember { ProfileStore.get(context, "name", "Muhammad Aryan") }
+    val pstation = remember { ProfileStore.get(context, "station", "Shaheed-e-Millat") }
+    val pshift = remember { ProfileStore.get(context, "shift", "Morning Shift") }
+
+    // Today's Summary — aaj ke saved TOM data se (save na ho to sab 0)
+    var opMap by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var clMap by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var opAt by remember { mutableStateOf<String?>(null) }
+    var clAt by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        opMap = TomStore.load(context, "opening")
+        clMap = TomStore.load(context, "closing")
+        opAt = TomStore.savedAt(context, "opening")
+        clAt = TomStore.savedAt(context, "closing")
+    }
+    val merged = remember(opMap, clMap) {
+        val m = opMap.toMutableMap()
+        clMap.forEach { (k, v) -> if (k.endsWith("_cls") || k == "bop_slips") m[k] = v }
+        m
+    }
+    fun n(key: String) = tomNum(merged, key)
+    val sumBopOp = n("bop_op")
+    val sumTomTotal = (1..5).sumOf { n("tom${it}_op") + n("tom${it}_rchg") }
+    val sumBopSlips = n("bop_slips")
+    fun rollUsed(pre: String): Double =
+        if ((merged[pre + "_cls"] ?: "").isNotBlank())
+            maxOf(0.0, (n(pre + "_op") + n(pre + "_recv") - n(pre + "_dist")) - n(pre + "_cls")) else 0.0
+    val sumUsed = rollUsed("bop") + rollUsed("roll") + rollUsed("tkm")
+    var sumSale = sumBopSlips * 30
+    var sumSlips = sumBopSlips
+    for (i in 1..5) {
+        val k = "tom$i"
+        if ((merged[k + "_cls"] ?: "").isNotBlank()) {
+            val sale = maxOf(0.0, (n(k + "_op") + n(k + "_rchg")) - n(k + "_cls"))
+            sumSale += sale
+            if (sale > 0) sumSlips += Math.round((sale / 30) * 10) / 10.0
+        }
+    }
+
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        // Header
+        // Header — profile photo pe tap = drawer khulega
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp), verticalAlignment = Alignment.CenterVertically) {
             Image(
-                painterResource(R.drawable.logo), contentDescription = "MetroPro logo",
-                Modifier.size(50.dp).clip(CircleShape), contentScale = ContentScale.Crop
+                painterResource(R.drawable.logo), contentDescription = "Profile — drawer kholo",
+                Modifier.size(50.dp).clip(CircleShape).border(2.dp, Gold1, CircleShape).clickable { openDrawer() },
+                contentScale = ContentScale.Crop
             )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -400,14 +608,14 @@ fun HomeScreen(go: (Screen) -> Unit) {
                 .background(GoldBrush).padding(20.dp)
         ) {
             Text("Assalam-o-Alaikum", color = Color.Black.copy(alpha = 0.75f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Text("Muhammad Aryan", color = Color.Black, fontSize = 23.sp, fontWeight = FontWeight.ExtraBold)
+            Text(pname, color = Color.Black, fontSize = 23.sp, fontWeight = FontWeight.ExtraBold)
             Row(Modifier.padding(top = 12.dp)) {
                 Box(Modifier.clip(RoundedCornerShape(999.dp)).border(1.6.dp, Color.Black.copy(alpha = 0.55f), RoundedCornerShape(999.dp)).padding(horizontal = 12.dp, vertical = 5.dp)) {
-                    Text("Shaheed-e-Millat", color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(pstation, color = Color.Black, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.width(8.dp))
                 Box(Modifier.clip(RoundedCornerShape(999.dp)).background(Color.Black).padding(horizontal = 12.dp, vertical = 5.dp)) {
-                    Text("Morning Shift", color = Gold1, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(pshift, color = Gold1, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -429,20 +637,36 @@ fun HomeScreen(go: (Screen) -> Unit) {
             QuickCard("GPS Camera", Icons.Filled.LocationOn, Modifier.weight(1f)) { go(Screen.Camera) }
             QuickCard("GCS Portal", Icons.Filled.Place, Modifier.weight(1f)) { go(Screen.Portal) }
         }
-        // Today summary
+        // Today's Summary — Opening upar, Closing neeche (uski spec)
         SectionTitle("Today's Summary")
         MpCard {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Station Overview", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                Text("View All", fontSize = 12.sp, fontWeight = FontWeight.Bold, style = TextStyle(brush = GoldBrush))
+                Text(pstation, fontSize = 12.sp, fontWeight = FontWeight.Bold, style = TextStyle(brush = GoldBrush))
             }
-            Row(Modifier.fillMaxWidth().padding(top = 16.dp)) {
-                SummaryStat("5", "TOMs", Modifier.weight(1f))
-                SummaryStat("128", "Cards Sold", Modifier.weight(1f))
-                SummaryStat("42", "Tokens", Modifier.weight(1f))
+            // OPENING
+            Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("OPENING", color = Gold1, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
+                Text(if (opAt != null) "Saved — $opAt" else "Not saved", color = if (opAt != null) White70 else White60, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 10.dp)) {
+                SummaryStat(tomFmt(sumBopOp), "BOP Roll", Modifier.weight(1f))
+                SummaryStat(tomFmt(sumTomTotal), "TOM Opening", Modifier.weight(1f))
+                SummaryStat(tomFmt(sumBopSlips), "BOP Slips", Modifier.weight(1f))
+            }
+            HorizontalDivider(color = Color(0x14FFFFFF), modifier = Modifier.padding(vertical = 14.dp))
+            // CLOSING
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("CLOSING", color = Gold1, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
+                Text(if (clAt != null) "Saved — $clAt" else "Not saved", color = if (clAt != null) White70 else White60, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 10.dp)) {
+                SummaryStat(tomFmt(sumUsed), "Used", Modifier.weight(1f))
+                SummaryStat("Rs ${tomFmt(sumSale)}", "Sale", Modifier.weight(1f))
+                SummaryStat(tomFmt(sumSlips), "Slips", Modifier.weight(1f))
             }
         }
-        // More options
+        // More options — Settings yahan NAHI hai (sirf drawer ke andar hai)
         SectionTitle("More Options")
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GridCard("Attendance", "Staff record", Icons.Filled.CheckCircle, Modifier.weight(1f)) { go(Screen.Attendance) }
@@ -451,7 +675,7 @@ fun HomeScreen(go: (Screen) -> Unit) {
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GridCard("Complaint", "Send to TL", Icons.Filled.Warning, Modifier.weight(1f)) { go(Screen.Complaint) }
-            GridCard("Settings", "App options", Icons.Filled.Settings, Modifier.weight(1f)) { go(Screen.Settings) }
+            GridCard("My Profile", "Account detail", Icons.Filled.Person, Modifier.weight(1f)) { go(Screen.Profile) }
         }
         Spacer(Modifier.height(24.dp))
     }
@@ -461,7 +685,7 @@ fun HomeScreen(go: (Screen) -> Unit) {
 fun QuickCard(label: String, icon: ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Column(
         modifier.clip(RoundedCornerShape(18.dp)).background(Forest2).border(1.dp, GoldBorder, RoundedCornerShape(18.dp))
-            .clickable { onClick() }.padding(vertical = 14.dp, horizontal = 4.dp),
+            .pressScale(onClick).padding(vertical = 14.dp, horizontal = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         GoldIconBox(icon)
@@ -474,7 +698,7 @@ fun QuickCard(label: String, icon: ImageVector, modifier: Modifier = Modifier, o
 fun GridCard(title: String, sub: String, icon: ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Row(
         modifier.clip(RoundedCornerShape(18.dp)).background(Forest2).border(1.dp, GoldBorder, RoundedCornerShape(18.dp))
-            .clickable { onClick() }.padding(14.dp),
+            .pressScale(onClick).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         GoldIconBox(icon, size = 42, iconSize = 21, radius = 13)
@@ -489,7 +713,7 @@ fun GridCard(title: String, sub: String, icon: ImageVector, modifier: Modifier =
 @Composable
 fun SummaryStat(num: String, cap: String, modifier: Modifier = Modifier) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(num, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, style = TextStyle(brush = GoldBrush))
+        Text(num, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, style = TextStyle(brush = GoldBrush))
         Text(cap, color = White70, fontSize = 11.sp)
     }
 }
@@ -834,9 +1058,15 @@ fun ReportsScreen(back: () -> Unit) {
 
 /* ---------------- Profile ---------------- */
 
+/* ===== My Profile ===== */
+
 @Composable
-fun ProfileScreen(back: () -> Unit, go: (Screen) -> Unit) {
+fun ProfileScreen(back: () -> Unit) {
     val context = LocalContext.current
+    var name by remember { mutableStateOf(ProfileStore.get(context, "name", "Muhammad Aryan")) }
+    var mobile by remember { mutableStateOf(ProfileStore.get(context, "mobile", "")) }
+    var empId by remember { mutableStateOf(ProfileStore.get(context, "empId", "")) }
+    var station by remember { mutableStateOf(ProfileStore.get(context, "station", "Shaheed-e-Millat")) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         SubHeader("My Profile", "Your account detail", back)
         Column(
@@ -845,38 +1075,84 @@ fun ProfileScreen(back: () -> Unit, go: (Screen) -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Image(painterResource(R.drawable.logo), contentDescription = null, Modifier.size(64.dp).clip(CircleShape), contentScale = ContentScale.Crop)
-            Text("Muhammad Aryan", color = Color.Black, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 10.dp))
-            Text("Shaheed-e-Millat Station — Operator", color = Color.Black.copy(alpha = 0.7f), fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+            Text(name.ifBlank { "Muhammad Aryan" }, color = Color.Black, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 10.dp))
+            Text("${station.ifBlank { "Shaheed-e-Millat" }} Station", color = Color.Black.copy(alpha = 0.7f), fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
         }
         Spacer(Modifier.height(8.dp))
         MpCard {
-            var name by remember { mutableStateOf("Muhammad Aryan") }
-            var mobile by remember { mutableStateOf("03xx-xxxxxxx") }
-            var empId by remember { mutableStateOf("EMP-0000") }
-            var station by remember { mutableStateOf("Shaheed-e-Millat") }
             DarkField("Full Name", name, { name = it })
             DarkField("Mobile Number", mobile, { mobile = it })
             DarkField("Employee ID", empId, { empId = it })
             DarkField("Station", station, { station = it })
         }
         Spacer(Modifier.height(10.dp))
-        GoldButton("Save Profile") { Toast.makeText(context, "Profile saving comes with the login update", Toast.LENGTH_SHORT).show() }
-        GhostButton("Open Settings") { go(Screen.Settings) }
+        GoldButton("Save Profile") {
+            ProfileStore.putAll(context, mapOf("name" to name, "mobile" to mobile, "empId" to empId, "station" to station))
+            Toast.makeText(context, "Profile saved", Toast.LENGTH_SHORT).show()
+        }
         Spacer(Modifier.height(20.dp))
     }
 }
 
-/* ---------------- Settings ---------------- */
+/* ===== Settings — full proper, har cheez ka alag section ===== */
 
 @Composable
 fun SettingsScreen(back: () -> Unit, updateState: UpdateUiState, onCheck: () -> Unit) {
-    var autoUpd by remember { mutableStateOf(true) }
+    val context = LocalContext.current
+    // Profile section
+    var name by remember { mutableStateOf(ProfileStore.get(context, "name", "Muhammad Aryan")) }
+    var station by remember { mutableStateOf(ProfileStore.get(context, "station", "Shaheed-e-Millat")) }
+    var shift by remember { mutableStateOf(ProfileStore.get(context, "shift", "Morning Shift")) }
+    var mobile by remember { mutableStateOf(ProfileStore.get(context, "mobile", "")) }
+    var empId by remember { mutableStateOf(ProfileStore.get(context, "empId", "")) }
+    // TL / RP section
+    var tlName by remember { mutableStateOf(ProfileStore.get(context, "tlName", "")) }
+    var rpName by remember { mutableStateOf(ProfileStore.get(context, "rpName", "")) }
+    // App section
     var notifs by remember { mutableStateOf(true) }
+
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        SubHeader("Settings", "App options", back)
+        SubHeader("Settings", "Har cheez ki setting apne section me", back)
+
+        SectionTitle("Profile")
         MpCard {
-            ListRow(Icons.Filled.Refresh, "Auto Update", "Check on every app open", {}) {
-                Switch(checked = autoUpd, onCheckedChange = { autoUpd = it }, colors = SwitchDefaults.colors(checkedThumbColor = Color.Black, checkedTrackColor = Gold1, uncheckedThumbColor = Gold1, uncheckedTrackColor = Forest1))
+            DarkField("Full Name", name, { name = it })
+            DarkField("Station", station, { station = it })
+            DarkField("Mobile Number", mobile, { mobile = it })
+            DarkField("Employee ID", empId, { empId = it })
+            Text("Shift", color = White70, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 6.dp))
+            Row(Modifier.fillMaxWidth().padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("Morning Shift", "Evening Shift").forEach { sh ->
+                    val active = shift == sh
+                    Box(
+                        Modifier.weight(1f).clip(RoundedCornerShape(999.dp))
+                            .then(if (active) Modifier.background(GoldBrush) else Modifier.background(Forest1).border(1.dp, Color(0x4DFFD700), RoundedCornerShape(999.dp)))
+                            .clickable { shift = sh }.padding(vertical = 9.dp),
+                        contentAlignment = Alignment.Center
+                    ) { Text(sh.replace(" Shift", ""), color = if (active) Color.Black else White70, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
+                }
+            }
+        }
+        GoldButton("Save Profile") {
+            ProfileStore.putAll(context, mapOf("name" to name, "station" to station, "shift" to shift, "mobile" to mobile, "empId" to empId))
+            Toast.makeText(context, "Profile saved", Toast.LENGTH_SHORT).show()
+        }
+
+        SectionTitle("TL / RP")
+        MpCard {
+            DarkField("TL Name", tlName, { tlName = it })
+            DarkField("RP Name", rpName, { rpName = it })
+            Text("TL/RP access aur login ka full system agli bari me is section se chalega.", color = White60, fontSize = 11.5.sp)
+        }
+        GoldButton("Save TL / RP") {
+            ProfileStore.putAll(context, mapOf("tlName" to tlName, "rpName" to rpName))
+            Toast.makeText(context, "TL / RP saved", Toast.LENGTH_SHORT).show()
+        }
+
+        SectionTitle("App & Updates")
+        MpCard {
+            ListRow(Icons.Filled.Refresh, "Auto Update", "Har app open pe 5 second baad check — hamesha ON", {}) {
+                Text("ON", fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold, style = TextStyle(brush = GoldBrush))
             }
             HorizontalDivider(color = Color(0x14FFFFFF))
             ListRow(Icons.Filled.Notifications, "Notifications", "Shift reminders", {}) {
@@ -884,10 +1160,7 @@ fun SettingsScreen(back: () -> Unit, updateState: UpdateUiState, onCheck: () -> 
             }
             HorizontalDivider(color = Color(0x14FFFFFF))
             ListRow(Icons.Filled.Info, "App Language", "English", {})
-            HorizontalDivider(color = Color(0x14FFFFFF))
-            ListRow(Icons.Filled.AccountCircle, "About MetroPro", "Version $CURRENT_VERSION_NAME", {})
         }
-        Spacer(Modifier.height(10.dp))
         GoldButton(
             when (updateState.phase) {
                 UpdatePhase.CHECKING -> "Checking..."
@@ -897,7 +1170,16 @@ fun SettingsScreen(back: () -> Unit, updateState: UpdateUiState, onCheck: () -> 
         ) { onCheck() }
         MpCard {
             Text(updateState.statusText, color = White70, fontSize = 12.5.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-            Text("MetroPro v$CURRENT_VERSION_NAME — updates come automatically from GitHub", color = White60, fontSize = 11.5.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+            Text("Updates GitHub se automatic aati hain", color = White60, fontSize = 11.5.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 4.dp))
+        }
+
+        SectionTitle("About")
+        MpCard {
+            ListRow(Icons.Filled.AccountCircle, "MetroPro", "Daily Work App — Version $CURRENT_VERSION_NAME", {})
+            HorizontalDivider(color = Color(0x14FFFFFF))
+            ListRow(Icons.Filled.Person, "Developer", "Muneeb", {})
+            HorizontalDivider(color = Color(0x14FFFFFF))
+            ListRow(Icons.Filled.Info, "Package", "com.zabii.metropro", {})
         }
         Spacer(Modifier.height(20.dp))
     }

@@ -1,6 +1,6 @@
 {
-  "versionCode": 2,
-  "versionName": "1.1",
-  "apkUrl": "https://maryanrajput72-bot.github.io/metro-pro/MetroPro-v1.1.apk",
-  "notes": "TOM Data: Opening/Closing alag sections, Metro+ wala auto hisaab (Used/Sale/Slips), Save kabhi overwrite nahi karta"
+  "versionCode": 3,
+  "versionName": "1.2",
+  "apkUrl": "https://maryanrajput72-bot.github.io/metro-pro/MetroPro-v1.2.apk",
+  "notes": "Sab noted cheezein ek update me: back-button rule, profile drawer (tap + swipe), Today's Summary Opening/Closing design, Settings full sections (Profile / TL-RP / App & Updates / About), cards smooth"
 }
