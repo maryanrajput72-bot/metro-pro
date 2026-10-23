@@ -1,6 +1,6 @@
 {
-  "versionCode": 6,
-  "versionName": "1.5",
-  "apkUrl": "https://maryanrajput72-bot.github.io/metro-pro/MetroPro-v1.5.apk",
-  "notes": "Bari update: nayi LIGHT GLASS theme (light rang), saari working — TOM WhatsApp reports (opening/closing), Closing Time (RMBS + Card Claim), GPS Camera asal photo+stamp, Attendance save/share, Complaint WhatsApp; Settings me TOM category (1-5 select); Money Calculator har note ek line me; home card pe aaj ki summary"
+  "versionCode": 7,
+  "versionName": "1.6",
+  "apkUrl": "https://maryanrajput72-bot.github.io/metro-pro/MetroPro-v1.6.apk",
+  "notes": "Backend connect: TOM save, attendance aur GPS photo ab Metro+ wale Firebase backend pe jayenge (admin panel me nazar ayenge). GPS Camera Metro+ .31 jaisa: app ke andar live camera + asal satellite map wala stamp frame."
 }
