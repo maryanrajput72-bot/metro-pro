@@ -1,6 +1,7 @@
 package com.zabii.metropro
 
 import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -57,9 +58,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -78,20 +81,24 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
-private const val CURRENT_VERSION_CODE = 5
-private const val CURRENT_VERSION_NAME = "1.4"
+private const val CURRENT_VERSION_CODE = 6
+private const val CURRENT_VERSION_NAME = "1.5"
 private const val VERSION_URL = "https://maryanrajput72-bot.github.io/metro-pro/version.json"
 
-private val Forest1 = Color(0xFF0D2818)
-private val Forest2 = Color(0xFF1B4332)
+// LIGHT GLASS THEME (v1.5 — uske color chart se light rang; glass jaisay safed cards)
+// Note: White70/White60 naam purane hain — ab ye gehri sabz tehreer (ink) ke shades hain.
+private val Forest1 = Color(0xFFE7F2E9)
+private val Forest2 = Color(0xF7FFFFFF)
 private val Gold1 = Color(0xFFFFD700)
 private val Gold2 = Color(0xFFFF9800)
-private val White70 = Color(0xB3FFFFFF)
-private val White60 = Color(0x99FFFFFF)
-private val GoldBorder = Color(0x59FFD700)
+private val GoldDeep = Color(0xFFB97F00)
+private val Ink = Color(0xFF0E2418)
+private val White70 = Color(0xB30E2418)
+private val White60 = Color(0x990E2418)
+private val GoldBorder = Color(0x2E0E2418)
 
 private val GoldBrush = Brush.linearGradient(listOf(Gold1, Gold2))
-private val ForestBrush = Brush.verticalGradient(listOf(Forest1, Forest2))
+private val ForestBrush = Brush.verticalGradient(listOf(Color(0xFFDFF0E2), Color(0xFFF8EFDB)))
 
 enum class UpdatePhase { IDLE, CHECKING, UP_TO_DATE, AVAILABLE, NEED_PERMISSION, DOWNLOADING, INSTALLING, FAILED }
 
@@ -102,13 +109,13 @@ class UpdateUiState {
     var statusText by mutableStateOf("Not checked yet")
 }
 
-enum class Screen { Home, Tom, Camera, Calc, Reports, Profile, Settings, Portal, Attendance, Complaint }
+enum class Screen { Home, Tom, Camera, Calc, Reports, Profile, Settings, Portal, Attendance, Complaint, ClosingTime }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme(colorScheme = darkColorScheme(primary = Gold1, background = Forest1, surface = Forest2)) {
+            MaterialTheme(colorScheme = lightColorScheme(primary = Gold2, background = Color(0xFFF2F7F0), surface = Color.White)) {
                 AppShell()
             }
         }
@@ -266,7 +273,8 @@ fun AppShell() {
                         Screen.Tom -> TomScreen(back = { navBack() })
                         Screen.Camera -> CameraScreen(back = { navBack() })
                         Screen.Calc -> CalcScreen(back = { navBack() })
-                        Screen.Reports -> ReportsScreen(back = { navBack() })
+                        Screen.Reports -> ReportsScreen(back = { navBack() }, go = { goTo(it) })
+                        Screen.ClosingTime -> ClosingTimeScreen(back = { navBack() })
                         Screen.Profile -> ProfileScreen(back = { navBack() })
                         Screen.Settings -> SettingsScreen(back = { navBack() }, updateState = updateState, onCheck = { checkUpdate(auto = false) })
                         Screen.Portal -> PortalScreen(back = { navBack() })
@@ -358,9 +366,9 @@ fun DrawerContent(go: (Screen) -> Unit, close: () -> Unit) {
                     Modifier.size(38.dp).clip(CircleShape).background(Forest1).border(1.dp, GoldBorder, CircleShape)
                         .clickable { go(Screen.Settings) },
                     contentAlignment = Alignment.Center
-                ) { Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = Gold1, modifier = Modifier.size(19.dp)) }
+                ) { Icon(Icons.Filled.Settings, contentDescription = "Settings", tint = GoldDeep, modifier = Modifier.size(19.dp)) }
             }
-            Text(name, color = Color.White, fontSize = 17.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
+            Text(name, color = Ink, fontSize = 17.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 12.dp))
             Text("$station — $shift", color = White70, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 10.dp, vertical = 8.dp)) {
@@ -372,19 +380,19 @@ fun DrawerContent(go: (Screen) -> Unit, close: () -> Unit) {
                 ) {
                     GoldIconBox(icon, size = 38, iconSize = 19, radius = 12)
                     Spacer(Modifier.width(12.dp))
-                    Text(label, color = Color.White, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = Color(0xCCFFD700), modifier = Modifier.size(19.dp))
+                    Text(label, color = Ink, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = GoldDeep, modifier = Modifier.size(19.dp))
                 }
             }
         }
-        HorizontalDivider(color = Color(0x14FFFFFF))
+        HorizontalDivider(color = Color(0x140E2418))
         Row(
             Modifier.fillMaxWidth().pressScale { go(Screen.Settings) }.padding(horizontal = 20.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Filled.Settings, contentDescription = null, tint = Gold1, modifier = Modifier.size(21.dp))
+            Icon(Icons.Filled.Settings, contentDescription = null, tint = GoldDeep, modifier = Modifier.size(21.dp))
             Spacer(Modifier.width(12.dp))
-            Text("Settings", color = Color.White, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
+            Text("Settings", color = Ink, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
         }
         Text(
             "MetroPro v$CURRENT_VERSION_NAME — by Muneeb",
@@ -411,7 +419,7 @@ fun SubHeader(title: String, sub: String, back: () -> Unit) {
         ) { Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = Color.Black, modifier = Modifier.size(19.dp)) }
         Spacer(Modifier.width(14.dp))
         Column {
-            Text(title, color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
+            Text(title, color = Ink, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
             Text(sub, color = White70, fontSize = 12.sp)
         }
     }
@@ -432,13 +440,13 @@ fun GhostButton(text: String, onClick: () -> Unit) {
         Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp).clip(RoundedCornerShape(16.dp))
             .border(1.6.dp, Color(0x8CFFD700), RoundedCornerShape(16.dp)).clickable { onClick() }.padding(vertical = 14.dp),
         contentAlignment = Alignment.Center
-    ) { Text(text, color = Gold1, fontSize = 14.5.sp, fontWeight = FontWeight.Bold) }
+    ) { Text(text, color = GoldDeep, fontSize = 14.5.sp, fontWeight = FontWeight.Bold) }
 }
 
 @Composable
 fun MpCard(content: @Composable ColumnScope.() -> Unit) {
     Column(
-        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp).clip(RoundedCornerShape(20.dp))
+        Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp).shadow(7.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp))
             .background(Forest2).border(1.dp, GoldBorder, RoundedCornerShape(20.dp)).padding(16.dp),
         content = content
     )
@@ -453,10 +461,10 @@ fun ListRow(icon: ImageVector, title: String, sub: String, onClick: () -> Unit, 
         GoldIconBox(icon, size = 40, iconSize = 20, radius = 12)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
+            Text(title, color = Ink, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
             Text(sub, color = White60, fontSize = 11.5.sp)
         }
-        if (trailing != null) trailing() else Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = Color(0xCCFFD700), modifier = Modifier.size(20.dp))
+        if (trailing != null) trailing() else Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = GoldDeep, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -474,7 +482,7 @@ fun DarkField(label: String, value: String, onChange: (String) -> Unit, placehol
             decorationBox = { inner ->
                 Box(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Forest1)
-                        .border(1.dp, Color(0x4DFFD700), RoundedCornerShape(12.dp)).padding(horizontal = 14.dp, vertical = 12.dp)
+                        .border(1.dp, Color(0x59B97F00), RoundedCornerShape(12.dp)).padding(horizontal = 14.dp, vertical = 12.dp)
                 ) { inner() }
             }
         )
@@ -486,7 +494,7 @@ fun SectionTitle(text: String) {
     Row(Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.width(5.dp).height(18.dp).clip(RoundedCornerShape(3.dp)).background(GoldBrush))
         Spacer(Modifier.width(10.dp))
-        Text(text, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        Text(text, color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -500,7 +508,7 @@ fun BottomNav(current: Screen, go: (Screen) -> Unit) {
         Triple(Screen.Profile, "Profile", Icons.Filled.Person)
     )
     val activeKey = when (current) {
-        Screen.Calc, Screen.Portal, Screen.Attendance, Screen.Complaint -> Screen.Home
+        Screen.Calc, Screen.Portal, Screen.Attendance, Screen.Complaint, Screen.ClosingTime -> Screen.Home
         Screen.Settings -> Screen.Profile
         else -> current
     }
@@ -525,7 +533,7 @@ fun BottomNav(current: Screen, go: (Screen) -> Unit) {
                         Modifier.clickable { go(scr) }.padding(vertical = 4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(icon, contentDescription = label, tint = Gold1, modifier = Modifier.size(22.dp))
+                        Icon(icon, contentDescription = label, tint = GoldDeep, modifier = Modifier.size(22.dp))
                         Text(label, color = White60, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
@@ -543,6 +551,7 @@ fun HomeScreen(go: (Screen) -> Unit, openDrawer: () -> Unit) {
     val pname = remember { ProfileStore.get(context, "name", "Muhammad Aryan") }
     val pstation = remember { ProfileStore.get(context, "station", "Shaheed-e-Millat") }
     val pshift = remember { ProfileStore.get(context, "shift", "Morning Shift") }
+    val tomCount = remember { ProfileStore.get(context, "tomCount", "5").toIntOrNull() ?: 5 }
 
     // Today's Summary — aaj ke saved TOM data se (save na ho to sab 0)
     var opMap by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
@@ -562,7 +571,7 @@ fun HomeScreen(go: (Screen) -> Unit, openDrawer: () -> Unit) {
     }
     fun n(key: String) = tomNum(merged, key)
     val sumBopOp = n("bop_op")
-    val sumTomTotal = (1..5).sumOf { n("tom${it}_op") + n("tom${it}_rchg") }
+    val sumTomTotal = (1..tomCount).sumOf { n("tom${it}_op") + n("tom${it}_rchg") }
     val sumBopSlips = n("bop_slips")
     fun rollUsed(pre: String): Double =
         if ((merged[pre + "_cls"] ?: "").isNotBlank())
@@ -570,7 +579,7 @@ fun HomeScreen(go: (Screen) -> Unit, openDrawer: () -> Unit) {
     val sumUsed = rollUsed("bop") + rollUsed("roll") + rollUsed("tkm")
     var sumSale = sumBopSlips * 30
     var sumSlips = sumBopSlips
-    for (i in 1..5) {
+    for (i in 1..tomCount) {
         val k = "tom$i"
         if ((merged[k + "_cls"] ?: "").isNotBlank()) {
             val sale = maxOf(0.0, (n(k + "_op") + n(k + "_rchg")) - n(k + "_cls"))
@@ -590,22 +599,23 @@ fun HomeScreen(go: (Screen) -> Unit, openDrawer: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text("Assalam-o-Alaikum", color = White70, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                Text(pname, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                Text(pname, color = Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             }
             Box(
                 Modifier.size(44.dp).clip(CircleShape).background(Forest2).border(1.dp, Color(0x73FFD700), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Filled.Notifications, contentDescription = null, tint = Gold1, modifier = Modifier.size(21.dp))
+                Icon(Icons.Filled.Notifications, contentDescription = null, tint = GoldDeep, modifier = Modifier.size(21.dp))
                 Box(Modifier.size(9.dp).clip(CircleShape).background(GoldBrush).align(Alignment.TopEnd).offset(x = (-8).dp, y = 8.dp))
             }
         }
 
-        // Hero banner — 3D metro train (reference style, Metro rang)
+        // Hero banner — 3D metro bus + card pe summary strip
         Box(
             Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 16.dp).clip(RoundedCornerShape(26.dp))
                 .background(GoldBrush)
         ) {
+          Column {
             Row(Modifier.fillMaxWidth().padding(start = 18.dp, top = 16.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1.05f)) {
                     Box(Modifier.clip(RoundedCornerShape(999.dp)).background(Color.Black).padding(horizontal = 10.dp, vertical = 4.dp)) {
@@ -617,7 +627,7 @@ fun HomeScreen(go: (Screen) -> Unit, openDrawer: () -> Unit) {
                         Modifier.padding(top = 12.dp).clip(RoundedCornerShape(999.dp)).background(Color.Black)
                             .clickable { go(Screen.Tom) }.padding(horizontal = 14.dp, vertical = 8.dp)
                     ) {
-                        Text("Open TOM Data  →", color = Gold1, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                        Text("Open TOM Data  →", color = GoldDeep, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
                     }
                 }
                 Image(
@@ -626,6 +636,26 @@ fun HomeScreen(go: (Screen) -> Unit, openDrawer: () -> Unit) {
                     contentScale = ContentScale.Crop
                 )
             }
+            // Card ke upar aaj ki summary (uski spec)
+            Row(
+                Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, bottom = 14.dp).clip(RoundedCornerShape(14.dp))
+                    .background(Color.Black.copy(alpha = 0.82f)).padding(horizontal = 14.dp, vertical = 9.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text("OPENING", color = Gold1, fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(tomFmt(sumBopOp + sumTomTotal), color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("SALE", color = Gold1, fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("Rs ${tomFmt(sumSale)}", color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("SLIPS", color = Gold1, fontSize = 9.5.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(tomFmt(sumSlips), color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold)
+                }
+            }
+          }
         }
         Text(today, color = White60, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 22.dp, top = 8.dp))
 
@@ -647,8 +677,8 @@ fun HomeScreen(go: (Screen) -> Unit, openDrawer: () -> Unit) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.width(5.dp).height(18.dp).clip(RoundedCornerShape(3.dp)).background(GoldBrush))
             Spacer(Modifier.width(10.dp))
-            Text("Quick Services", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            Text("View All →", fontSize = 12.sp, fontWeight = FontWeight.Bold, style = TextStyle(brush = GoldBrush), modifier = Modifier.clickable { openDrawer() })
+            Text("Quick Services", color = Ink, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text("View All →", fontSize = 12.sp, fontWeight = FontWeight.Bold, style = TextStyle(color = GoldDeep), modifier = Modifier.clickable { openDrawer() })
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             ServiceCard(R.drawable.icon3d_tom, "TOM Data", "Opening • Closing register", Modifier.weight(1f)) { go(Screen.Tom) }
@@ -664,11 +694,11 @@ fun HomeScreen(go: (Screen) -> Unit, openDrawer: () -> Unit) {
         SectionTitle("Today's Summary")
         MpCard {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("Station Overview", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                Text(pstation, fontSize = 12.sp, fontWeight = FontWeight.Bold, style = TextStyle(brush = GoldBrush))
+                Text("Station Overview", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text(pstation, fontSize = 12.sp, fontWeight = FontWeight.Bold, style = TextStyle(color = GoldDeep))
             }
             Row(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("OPENING", color = Gold1, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
+                Text("OPENING", color = GoldDeep, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
                 Text(if (opAt != null) "Saved — $opAt" else "Not saved", color = if (opAt != null) White70 else White60, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
             }
             Row(Modifier.fillMaxWidth().padding(top = 10.dp)) {
@@ -676,9 +706,9 @@ fun HomeScreen(go: (Screen) -> Unit, openDrawer: () -> Unit) {
                 SummaryStat(tomFmt(sumTomTotal), "TOM Opening", Modifier.weight(1f))
                 SummaryStat(tomFmt(sumBopSlips), "BOP Slips", Modifier.weight(1f))
             }
-            HorizontalDivider(color = Color(0x14FFFFFF), modifier = Modifier.padding(vertical = 14.dp))
+            HorizontalDivider(color = Color(0x140E2418), modifier = Modifier.padding(vertical = 14.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("CLOSING", color = Gold1, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
+                Text("CLOSING", color = GoldDeep, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
                 Text(if (clAt != null) "Saved — $clAt" else "Not saved", color = if (clAt != null) White70 else White60, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
             }
             Row(Modifier.fillMaxWidth().padding(top = 10.dp)) {
@@ -704,7 +734,7 @@ fun HomeScreen(go: (Screen) -> Unit, openDrawer: () -> Unit) {
                     Text("Closing report WhatsApp pe bhejo", color = Color.Black.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Box(Modifier.clip(RoundedCornerShape(999.dp)).background(Color.Black).padding(horizontal = 13.dp, vertical = 8.dp)) {
-                    Text("Open →", color = Gold1, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("Open →", color = GoldDeep, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
                 }
             }
         }
@@ -739,7 +769,7 @@ fun CatCircle(img: Int, label: String, onClick: () -> Unit) {
 @Composable
 fun ServiceCard(img: Int, title: String, sub: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Column(
-        modifier.clip(RoundedCornerShape(20.dp)).background(Forest2).border(1.dp, GoldBorder, RoundedCornerShape(20.dp))
+        modifier.shadow(7.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Forest2).border(1.dp, GoldBorder, RoundedCornerShape(20.dp))
             .pressScale(onClick).padding(10.dp)
     ) {
         Image(
@@ -749,7 +779,7 @@ fun ServiceCard(img: Int, title: String, sub: String, modifier: Modifier = Modif
         )
         Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(title, color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 16.sp)
+                Text(title, color = Ink, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold, lineHeight = 16.sp)
                 Text(sub, color = White60, fontSize = 10.5.sp, lineHeight = 13.sp)
             }
             Box(
@@ -769,7 +799,7 @@ fun QuickCard(label: String, icon: ImageVector, modifier: Modifier = Modifier, o
     ) {
         GoldIconBox(icon)
         Spacer(Modifier.height(8.dp))
-        Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, lineHeight = 13.sp)
+        Text(label, color = Ink, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, lineHeight = 13.sp)
     }
 }
 
@@ -783,7 +813,7 @@ fun GridCard(title: String, sub: String, icon: ImageVector, modifier: Modifier =
         GoldIconBox(icon, size = 42, iconSize = 21, radius = 13)
         Spacer(Modifier.width(12.dp))
         Column {
-            Text(title, color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+            Text(title, color = Ink, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
             Text(sub, color = White60, fontSize = 11.sp)
         }
     }
@@ -792,7 +822,7 @@ fun GridCard(title: String, sub: String, icon: ImageVector, modifier: Modifier =
 @Composable
 fun SummaryStat(num: String, cap: String, modifier: Modifier = Modifier) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(num, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, style = TextStyle(brush = GoldBrush))
+        Text(num, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, style = TextStyle(color = GoldDeep))
         Text(cap, color = White70, fontSize = 11.sp)
     }
 }
@@ -840,14 +870,14 @@ fun TomMiniField(label: String, value: String, onChange: (String) -> Unit, modif
         BasicTextField(
             value = value,
             onValueChange = { onChange(it.filter { ch -> ch.isDigit() || ch == '.' }) },
-            textStyle = TextStyle(color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold),
+            textStyle = TextStyle(color = Ink, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold),
             cursorBrush = SolidColor(Gold1),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             singleLine = true,
             decorationBox = { inner ->
                 Box(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Forest1)
-                        .border(1.dp, Color(0x4DFFD700), RoundedCornerShape(10.dp)).padding(horizontal = 8.dp, vertical = 8.dp)
+                        .border(1.dp, Color(0x59B97F00), RoundedCornerShape(10.dp)).padding(horizontal = 8.dp, vertical = 8.dp)
                 ) { inner() }
             }
         )
@@ -861,14 +891,14 @@ fun TomMiniStat(label: String, value: String, modifier: Modifier = Modifier) {
         Box(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color(0x1AFFD700))
                 .border(1.dp, Color(0x33FFD700), RoundedCornerShape(10.dp)).padding(horizontal = 8.dp, vertical = 8.dp)
-        ) { Text(value, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold, style = TextStyle(brush = GoldBrush)) }
+        ) { Text(value, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold, style = TextStyle(color = GoldDeep)) }
     }
 }
 
 @Composable
 fun TomCompactCard(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).clip(RoundedCornerShape(16.dp))
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).shadow(6.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp))
             .background(Forest2).border(1.dp, GoldBorder, RoundedCornerShape(16.dp)).padding(horizontal = 12.dp, vertical = 10.dp),
         content = content
     )
@@ -879,6 +909,7 @@ fun TomScreen(back: () -> Unit) {
     val context = LocalContext.current
     var mode by remember { mutableStateOf("opening") }
     val fields = remember { mutableStateMapOf<String, String>() }
+    val tomCount = remember { ProfileStore.get(context, "tomCount", "5").toIntOrNull() ?: 5 }
     var openingSavedAt by remember { mutableStateOf<String?>(null) }
     var closingSavedAt by remember { mutableStateOf<String?>(null) }
     var prefilled by remember { mutableStateOf(false) }
@@ -886,7 +917,7 @@ fun TomScreen(back: () -> Unit) {
     LaunchedEffect(Unit) {
         fields.putAll(TomStore.load(context, "opening"))
         val cls = TomStore.load(context, "closing")
-        cls.forEach { (k, v) -> if (k.endsWith("_cls") || k == "bop_slips") fields[k] = v }
+        cls.forEach { (k, v) -> if (k.endsWith("_cls") || k == "bop_slips" || k == "bop_cardcnt") fields[k] = v }
         openingSavedAt = TomStore.savedAt(context, "opening")
         closingSavedAt = TomStore.savedAt(context, "closing")
     }
@@ -902,7 +933,7 @@ fun TomScreen(back: () -> Unit) {
                 val op = f(p + "_op"); if (op.isNotBlank()) fields[p + "_cls"] = op
             }
         }
-        for (i in 1..5) {
+        for (i in 1..tomCount) {
             val k = "tom$i"
             if (f(k + "_cls").isBlank()) {
                 val sum = tomNum(fields, k + "_op") + tomNum(fields, k + "_rchg")
@@ -930,12 +961,12 @@ fun TomScreen(back: () -> Unit) {
             ) { Icon(Icons.Filled.ArrowBack, contentDescription = "Back", tint = Color.Black, modifier = Modifier.size(17.dp)) }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text("TOM Data", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+                Text("TOM Data", color = Ink, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
                 Text(today, color = White60, fontSize = 11.sp)
             }
             Text(
                 if (savedAt != null) "✓ Saved $savedAt" else "Not saved",
-                color = if (savedAt != null) Gold1 else White60, fontSize = 11.5.sp, fontWeight = FontWeight.Bold
+                color = if (savedAt != null) GoldDeep else White60, fontSize = 11.5.sp, fontWeight = FontWeight.Bold
             )
         }
 
@@ -968,10 +999,10 @@ fun TomScreen(back: () -> Unit) {
                 }
             }
             TomCompactCard("TOM Machines") {
-                for (i in 1..5) {
+                for (i in 1..tomCount) {
                     val k = "tom$i"
                     Row(Modifier.padding(top = if (i > 1) 6.dp else 0.dp), verticalAlignment = Alignment.Bottom) {
-                        Text("TOM $i", color = Gold1, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(46.dp).padding(bottom = 9.dp))
+                        Text("TOM $i", color = GoldDeep, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(46.dp).padding(bottom = 9.dp))
                         TomMiniField("Opening", f(k + "_op"), { set(k + "_op", it) }, Modifier.weight(1f))
                         Spacer(Modifier.width(8.dp))
                         TomMiniField("Recharge", f(k + "_rchg"), { set(k + "_rchg", it) }, Modifier.weight(1f))
@@ -981,7 +1012,7 @@ fun TomScreen(back: () -> Unit) {
             TomCompactCard("Rolls") {
                 listOf("roll" to "TOM Roll", "tkm" to "TKM Roll").forEachIndexed { idx, (pre, label) ->
                     Row(Modifier.padding(top = if (idx > 0) 8.dp else 0.dp), verticalAlignment = Alignment.Bottom) {
-                        Text(label, color = Gold1, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(62.dp).padding(bottom = 9.dp))
+                        Text(label, color = GoldDeep, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(62.dp).padding(bottom = 9.dp))
                         TomMiniField("Opening", f(pre + "_op"), { set(pre + "_op", it) }, Modifier.weight(1f))
                         Spacer(Modifier.width(8.dp))
                         TomMiniField("Receive", f(pre + "_recv"), { set(pre + "_recv", it) }, Modifier.weight(1f))
@@ -997,20 +1028,22 @@ fun TomScreen(back: () -> Unit) {
                 openingSavedAt = TomStore.savedAt(context, "opening")
                 Toast.makeText(context, "Opening saved", Toast.LENGTH_SHORT).show()
             }
+            GhostButton("Share Opening — WhatsApp") { WaReports.share(context, WaReports.openingText(context)) }
             Spacer(Modifier.height(10.dp))
         } else {
             TomCompactCard("BOP Roll") {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TomMiniField("Closing", f("bop_cls"), { set("bop_cls", it) }, Modifier.weight(1f))
-                    TomMiniStat("Used", tomFmt(rollUsed("bop")), Modifier.weight(1f))
-                    TomMiniStat("Sale Amount", "Rs ${tomFmt(tomNum(fields, "bop_slips") * 30)}", Modifier.weight(1.2f))
+                    TomMiniField("Card Count", f("bop_cardcnt"), { set("bop_cardcnt", it) }, Modifier.weight(0.9f))
+                    TomMiniStat("Used", tomFmt(rollUsed("bop")), Modifier.weight(0.9f))
+                    TomMiniStat("Sale Amount", "Rs ${tomFmt(tomNum(fields, "bop_slips") * 30)}", Modifier.weight(1.1f))
                 }
             }
             TomCompactCard("TOM Machines") {
-                for (i in 1..5) {
+                for (i in 1..tomCount) {
                     val k = "tom$i"
                     Row(Modifier.padding(top = if (i > 1) 6.dp else 0.dp), verticalAlignment = Alignment.Bottom) {
-                        Text("TOM $i", color = Gold1, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(46.dp).padding(bottom = 9.dp))
+                        Text("TOM $i", color = GoldDeep, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(46.dp).padding(bottom = 9.dp))
                         TomMiniField("Closing", f(k + "_cls"), { set(k + "_cls", it) }, Modifier.weight(1.1f))
                         Spacer(Modifier.width(8.dp))
                         TomMiniStat("Sale", "Rs ${tomFmt(tomSale(k))}", Modifier.weight(1f))
@@ -1022,7 +1055,7 @@ fun TomScreen(back: () -> Unit) {
             TomCompactCard("Rolls") {
                 listOf("roll" to "TOM Roll", "tkm" to "TKM Roll").forEachIndexed { idx, (pre, label) ->
                     Row(Modifier.padding(top = if (idx > 0) 8.dp else 0.dp), verticalAlignment = Alignment.Bottom) {
-                        Text(label, color = Gold1, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(62.dp).padding(bottom = 9.dp))
+                        Text(label, color = GoldDeep, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.width(62.dp).padding(bottom = 9.dp))
                         TomMiniField("Closing", f(pre + "_cls"), { set(pre + "_cls", it) }, Modifier.weight(1f))
                         Spacer(Modifier.width(8.dp))
                         TomMiniStat("Used", tomFmt(rollUsed(pre)), Modifier.weight(1f))
@@ -1031,130 +1064,416 @@ fun TomScreen(back: () -> Unit) {
             }
             Spacer(Modifier.weight(1f))
             GoldButton("Save & Lock Closing") {
-                val data = fields.filterKeys { it.endsWith("_cls") || it == "bop_slips" }
+                val data = fields.filterKeys { it.endsWith("_cls") || it == "bop_slips" || it == "bop_cardcnt" }
                 TomStore.save(context, "closing", data)
                 closingSavedAt = TomStore.savedAt(context, "closing")
                 Toast.makeText(context, "Closing saved", Toast.LENGTH_SHORT).show()
             }
-            Text(
-                "WhatsApp report agli bari me ayega",
-                color = White60, fontSize = 11.sp, textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp, top = 2.dp)
-            )
+            GhostButton("Share Closing — WhatsApp") { WaReports.share(context, WaReports.closingText(context)) }
+            Spacer(Modifier.height(10.dp))
         }
     }
 }
 
 /* ---------------- GPS Camera ---------------- */
 
+/* ===== GPS Camera — asal photo + stamp + share ===== */
+
+fun stampBitmap(src: android.graphics.Bitmap, lines: List<String>): android.graphics.Bitmap {
+    val out = src.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
+    val canvas = android.graphics.Canvas(out)
+    val w = out.width.toFloat()
+    val h = out.height.toFloat()
+    val scale = w / 1080f
+    val pad = 28f * scale
+    val lineH = 44f * scale
+    val boxH = pad * 1.6f + lineH * lines.size
+    val bg = android.graphics.Paint().apply { color = android.graphics.Color.argb(178, 6, 32, 18) }
+    canvas.drawRect(0f, h - boxH, w * 0.86f, h, bg)
+    val gold = android.graphics.Paint().apply {
+        color = android.graphics.Color.rgb(255, 215, 0); textSize = 40f * scale
+        typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+        isAntiAlias = true
+    }
+    val white = android.graphics.Paint().apply {
+        color = android.graphics.Color.WHITE; textSize = 36f * scale; isAntiAlias = true
+    }
+    lines.forEachIndexed { i, line ->
+        val y = h - boxH + pad * 0.9f + lineH * (i + 0.8f)
+        canvas.drawText(line, pad, y, if (i == 0) gold else white)
+    }
+    return out
+}
+
 @Composable
 fun CameraScreen(back: () -> Unit) {
     val context = LocalContext.current
+    val station = remember { ProfileStore.get(context, "station", "Shaheed-e-Millat") }
+    var photoPath by remember { mutableStateOf(ProfileStore.get(context, "lastPhoto", "")) }
+    var stampLines by remember { mutableStateOf<List<String>>(emptyList()) }
+    var pendingFile by remember { mutableStateOf<java.io.File?>(null) }
+
+    fun nowLines(latLng: String?): List<String> {
+        val dt = SimpleDateFormat("dd MMM yyyy — hh:mm a", Locale.ENGLISH).format(Date())
+        val lines = mutableListOf(station + " Station", "Islamabad, Pakistan", dt)
+        if (latLng != null) lines.add(latLng)
+        return lines
+    }
+
+    val takePicture = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.TakePicture()
+    ) { success ->
+        val file = pendingFile
+        if (success && file != null && file.exists()) {
+            try {
+                // Location (last known) — mile to stamp me, na mile to baghair
+                var latLng: String? = null
+                try {
+                    val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+                    val providers = listOf(android.location.LocationManager.GPS_PROVIDER, android.location.LocationManager.NETWORK_PROVIDER)
+                    for (pr in providers) {
+                        val loc = lm.getLastKnownLocation(pr)
+                        if (loc != null) { latLng = "Lat %.4f, Lng %.4f".format(loc.latitude, loc.longitude); break }
+                    }
+                } catch (e: Exception) { }
+                val lines = nowLines(latLng)
+                val bmp = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
+                if (bmp != null) {
+                    val stamped = stampBitmap(bmp, lines)
+                    java.io.FileOutputStream(file).use { out -> stamped.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, out) }
+                    stampLines = lines
+                }
+                photoPath = file.absolutePath
+                ProfileStore.put(context, "lastPhoto", file.absolutePath)
+                Toast.makeText(context, "Photo saved — stamp lag gaya", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Photo process nahi ho saka", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    val permLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { }
+
+    fun capture() {
+        try {
+            val dir = java.io.File(context.cacheDir, "photos").apply { mkdirs() }
+            val file = java.io.File(dir, "metro_${System.currentTimeMillis()}.jpg")
+            pendingFile = file
+            val uri = androidx.core.content.FileProvider.getUriForFile(context, "com.zabii.metropro.fileprovider", file)
+            takePicture.launch(uri)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Camera nahi khul saka", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         SubHeader("GPS Camera", "Photo with location stamp", back)
         Box(
             Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp).height(340.dp)
-                .clip(RoundedCornerShape(22.dp)).background(Forest1).border(1.dp, Color(0x4DFFD700), RoundedCornerShape(22.dp))
+                .clip(RoundedCornerShape(22.dp)).background(Forest1).border(1.dp, Color(0x59B97F00), RoundedCornerShape(22.dp))
         ) {
-            // grid lines
-            Row(Modifier.fillMaxSize()) { repeat(3) { Box(Modifier.weight(1f).fillMaxHeight().border(0.5.dp, Color(0x12FFD700))) } }
-            Text("● LIVE GPS", color = Gold1, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.align(Alignment.TopEnd).padding(14.dp))
-            Column(
-                Modifier.align(Alignment.BottomStart).padding(14.dp).clip(RoundedCornerShape(10.dp))
-                    .background(Forest1.copy(alpha = 0.85f)).border(1.dp, Color(0x59FFD700), RoundedCornerShape(10.dp)).padding(10.dp)
-            ) {
-                Text("Shaheed-e-Millat Station", color = Gold1, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text("Islamabad, Pakistan", color = Color.White, fontSize = 11.5.sp)
-                Text("Lat 33.7294, Lng 73.0931", color = Color.White, fontSize = 11.5.sp)
+            if (photoPath.isNotBlank() && java.io.File(photoPath).exists()) {
+                Image(
+                    painter = androidx.compose.ui.graphics.painter.BitmapPainter(
+                        android.graphics.BitmapFactory.decodeFile(photoPath).asImageBitmap()
+                    ),
+                    contentDescription = "Captured photo", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop
+                )
+            } else {
+                Text("● LIVE GPS", color = GoldDeep, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.align(Alignment.TopEnd).padding(14.dp))
+                Column(
+                    Modifier.align(Alignment.BottomStart).padding(14.dp).clip(RoundedCornerShape(10.dp))
+                        .background(Forest2).border(1.dp, Color(0x59B97F00), RoundedCornerShape(10.dp)).padding(10.dp)
+                ) {
+                    Text("$station Station", color = GoldDeep, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("Islamabad, Pakistan", color = Ink, fontSize = 11.5.sp)
+                    Text("Photo lo — stamp khud lagega", color = White60, fontSize = 11.5.sp)
+                }
+                Text("Abhi koi photo nahi li", color = White60, fontSize = 12.5.sp, modifier = Modifier.align(Alignment.Center))
             }
         }
-        Box(
-            Modifier.padding(top = 18.dp).size(66.dp).clip(CircleShape).background(GoldBrush)
-                .border(5.dp, Color(0xD9FFFFFF), CircleShape).clickable {
-                    Toast.makeText(context, "Camera feature coming in next update — GUI test build", Toast.LENGTH_SHORT).show()
-                }.align(Alignment.CenterHorizontally)
-        )
         Spacer(Modifier.height(16.dp))
-        GhostButton("Capture Video") { Toast.makeText(context, "Feature coming in next update — GUI test build", Toast.LENGTH_SHORT).show() }
+        Box(
+            Modifier.size(66.dp).clip(CircleShape).background(GoldBrush)
+                .border(5.dp, Color(0xD9FFFFFF), CircleShape)
+                .clickable {
+                    permLauncher.launch(arrayOf(android.Manifest.permission.CAMERA, android.Manifest.permission.ACCESS_FINE_LOCATION))
+                    capture()
+                }
+                .align(Alignment.CenterHorizontally)
+        )
+        Text("Tap — photo lo", color = White60, fontSize = 11.5.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+        Spacer(Modifier.height(10.dp))
+        GoldButton("WhatsApp pe Photo bhejo") {
+            val f = java.io.File(photoPath)
+            if (photoPath.isBlank() || !f.exists()) {
+                Toast.makeText(context, "Pehle photo lo", Toast.LENGTH_SHORT).show()
+            } else {
+                try {
+                    val uri = androidx.core.content.FileProvider.getUriForFile(context, "com.zabii.metropro.fileprovider", f)
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = "image/jpeg"
+                        putExtra(Intent.EXTRA_STREAM, uri)
+                        putExtra(Intent.EXTRA_TEXT, "$station Station — ${SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.ENGLISH).format(Date())}")
+                        setPackage("com.whatsapp")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(context, "WhatsApp share nahi ho saka", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
         Spacer(Modifier.height(20.dp))
     }
 }
-
-/* ---------------- Money Calculator (asal kaam karta hai) ---------------- */
 
 @Composable
 fun CalcScreen(back: () -> Unit) {
-    val denoms = listOf(5000, 1000, 500, 100, 50, 10)
-    val counts = remember { mutableStateMapOf(5000 to 2, 1000 to 5, 500 to 4, 100 to 12, 50 to 8, 10 to 25) }
-    val total = denoms.sumOf { it * (counts[it] ?: 0) }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        SubHeader("Money Calculator", "Count notes & coins", back)
-        Spacer(Modifier.height(8.dp))
-        for (row in denoms.chunked(2)) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 5.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                row.forEach { d ->
-                    val c = counts[d] ?: 0
-                    Row(
-                        Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(Forest2)
-                            .border(1.dp, GoldBorder, RoundedCornerShape(16.dp)).padding(horizontal = 12.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text("$d", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
-                            Text(if (d == 10) "Coin" else "Note", color = White60, fontSize = 11.sp)
+    val context = LocalContext.current
+    val denoms = listOf(5000, 1000, 500, 100, 75, 50, 20, 10)
+    val qtys = remember { mutableStateMapOf<Int, String>() }
+    fun q(d: Int) = qtys[d] ?: ""
+    fun amt(d: Int) = d * (q(d).toIntOrNull() ?: 0)
+    val total = denoms.sumOf { amt(it) }
+    val totalNotes = denoms.sumOf { q(it).toIntOrNull() ?: 0 }
+
+    Column(Modifier.fillMaxSize()) {
+        SubHeader("Money Calculator", "Har note ek line me — Metro+ style", back)
+        Spacer(Modifier.height(6.dp))
+        MpCard {
+            denoms.forEachIndexed { idx, d ->
+                if (idx > 0) HorizontalDivider(color = Color(0x140E2418), modifier = Modifier.padding(vertical = 7.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier.width(74.dp).clip(RoundedCornerShape(10.dp)).background(GoldBrush).padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) { Text("Rs ${tomFmt(d.toDouble())}", color = Color.Black, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
+                    Text(" × ", color = White60, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp))
+                    BasicTextField(
+                        value = q(d),
+                        onValueChange = { qtys[d] = it.filter { ch -> ch.isDigit() } },
+                        textStyle = TextStyle(color = Ink, fontSize = 14.5.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center),
+                        cursorBrush = SolidColor(GoldDeep),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        singleLine = true,
+                        decorationBox = { inner ->
+                            Box(
+                                Modifier.width(76.dp).clip(RoundedCornerShape(10.dp)).background(Forest1)
+                                    .border(1.dp, Color(0x59B97F00), RoundedCornerShape(10.dp)).padding(horizontal = 8.dp, vertical = 9.dp)
+                            ) { inner() }
                         }
-                        QtyBtn("−") { if (c > 0) counts[d] = c - 1 }
-                        Text("$c", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 8.dp))
-                        QtyBtn("+") { counts[d] = c + 1 }
-                    }
+                    )
+                    Text(" = ", color = White60, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 6.dp))
+                    Text(
+                        "Rs ${tomFmt(amt(d).toDouble())}", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.weight(1f), textAlign = TextAlign.End
+                    )
                 }
-                if (row.size == 1) Spacer(Modifier.weight(1f))
             }
         }
-        Row(
-            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 14.dp).clip(RoundedCornerShape(18.dp))
-                .background(GoldBrush).padding(horizontal = 18.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text("TOTAL AMOUNT", color = Color.Black.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                Text("Rs %,d".format(total), color = Color.Black, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+        Spacer(Modifier.weight(1f))
+        MpCard {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column {
+                    Text("GRAND TOTAL", color = GoldDeep, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold)
+                    Text("$totalNotes notes", color = White60, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Text("Rs ${tomFmt(total.toDouble())}", color = Ink, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
             }
-            Text("PKR", color = Color.Black, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
         }
-        Spacer(Modifier.height(8.dp))
-        GoldButton("Clear All") { denoms.forEach { counts[it] = 0 } }
+        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(
+                Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).border(1.6.dp, Color(0x8CB97F00), RoundedCornerShape(16.dp))
+                    .clickable { qtys.clear() }.padding(vertical = 13.dp),
+                contentAlignment = Alignment.Center
+            ) { Text("Clear", color = GoldDeep, fontSize = 14.5.sp, fontWeight = FontWeight.Bold) }
+            Box(
+                Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).background(GoldBrush)
+                    .clickable { Toast.makeText(context, "Total: Rs ${tomFmt(total.toDouble())}", Toast.LENGTH_SHORT).show() }.padding(vertical = 13.dp),
+                contentAlignment = Alignment.Center
+            ) { Text("Done", color = Color.Black, fontSize = 14.5.sp, fontWeight = FontWeight.ExtraBold) }
+        }
+        Spacer(Modifier.height(14.dp))
+    }
+}
+
+/* ===== WhatsApp Reports — Metro+ ke byte-exact formats ===== */
+
+object WaReports {
+    val stationNumbers = mapOf(
+        "Saddar" to "201", "Marrir Chowk" to "202", "Liaqat Bagh" to "203", "Committee Chowk" to "204",
+        "Waris Khan" to "205", "Chandni Chowk" to "206", "Rehmanabad" to "207", "6th Road" to "208",
+        "Khatam-e-Nabuwat" to "209", "Shamsabad" to "209", "Faizabad" to "210", "IJP" to "211",
+        "Potohar" to "212", "Khayaban-e-Johar" to "213", "Faiz Ahmed Faiz" to "214", "Kashmir Highway" to "215",
+        "Chaman" to "216", "Ibn-e-Sina" to "217", "Kachehry" to "218", "PIMS" to "219",
+        "Stock Exchange" to "220", "7th Avenue" to "221", "Shaheed-e-Millat" to "222",
+        "Parade Ground" to "223", "Pak Secretariat" to "224"
+    )
+
+    fun pad(v: Double): String = when {
+        v == 0.0 -> "00"
+        v > 0 && v < 10 -> "0" + (if (v % 1.0 == 0.0) v.toInt().toString() else v.toString())
+        v % 1.0 == 0.0 -> v.toInt().toString()
+        else -> v.toString()
+    }
+    fun dateSlash(): String = SimpleDateFormat("dd/MM/yyyy", Locale.ENGLISH).format(Date())
+    fun station(ctx: android.content.Context) = ProfileStore.get(ctx, "station", "Shaheed-e-Millat")
+    fun shift(ctx: android.content.Context) = ProfileStore.get(ctx, "shift", "Morning Shift").replace(" Shift", "")
+    fun tomCount(ctx: android.content.Context) = ProfileStore.get(ctx, "tomCount", "5").toIntOrNull() ?: 5
+
+    fun fields(ctx: android.content.Context): MutableMap<String, String> {
+        val m = TomStore.load(ctx, "opening").toMutableMap()
+        TomStore.load(ctx, "closing").forEach { (k, v) -> if (k.endsWith("_cls") || k == "bop_slips" || k == "bop_cardcnt") m[k] = v }
+        return m
+    }
+    fun n(f: Map<String, String>, k: String) = tomNum(f, k)
+    fun tomSale(f: Map<String, String>, k: String) = maxOf(0.0, (n(f, k + "_op") + n(f, k + "_rchg")) - n(f, k + "_cls"))
+    fun tomSlips(f: Map<String, String>, k: String): Double { val sl = tomSale(f, k); return if (sl > 0) Math.round((sl / 30) * 10) / 10.0 else 0.0 }
+    fun grandSale(ctx: android.content.Context): Long {
+        val f = fields(ctx)
+        var total = n(f, "bop_slips") * 30
+        for (i in 1..tomCount(ctx)) total += tomSale(f, "tom$i")
+        return Math.round(total)
+    }
+
+    fun openingText(ctx: android.content.Context): String {
+        val f = fields(ctx)
+        val sb = StringBuilder()
+        sb.append("Date:*${dateSlash()}*\n")
+        sb.append("Station:*${station(ctx)}*\n")
+        sb.append("Shift: ${shift(ctx)}\n\n")
+        sb.append("*Opening Detail*\n==================\n")
+        sb.append("*BOP Roll Count* : *${pad(n(f, "bop_op"))}*\n")
+        sb.append("*TOM Roll Count* : *${pad(n(f, "roll_op"))}*\n")
+        sb.append("*TKM ROLL Count:   ${pad(n(f, "tkm_op"))}*\n")
+        sb.append("==================\n*TOM Opening Balance*\n")
+        for (i in 1..tomCount(ctx)) {
+            sb.append("TOM 0$i :${pad(n(f, "tom${i}_op"))}")
+            if (i < tomCount(ctx)) sb.append("\n")
+        }
+        return sb.toString()
+    }
+
+    fun closingText(ctx: android.content.Context): String {
+        val f = fields(ctx)
+        val cnt = tomCount(ctx)
+        var tomSlipsTotal = 0.0
+        var tomAmtTotal = 0.0
+        for (i in 1..cnt) { tomSlipsTotal += tomSlips(f, "tom$i"); tomAmtTotal += tomSale(f, "tom$i") }
+        val slipsStr = if (tomSlipsTotal == 0.0) "00" else (Math.round(tomSlipsTotal * 10) / 10.0).toString()
+        val amtStr = if (tomAmtTotal == 0.0) "00" else tomAmtTotal.toInt().toString()
+        val sb = StringBuilder()
+        sb.append("*Station: ${station(ctx)}*\n")
+        sb.append("*Shift: ${shift(ctx)}*\n")
+        sb.append("*Date: ${dateSlash()}*\n")
+        sb.append("================\n___________\n")
+        sb.append("BOP Roll Opening:${pad(n(f, "bop_op"))}\n")
+        sb.append("BOP Roll Received:${pad(n(f, "bop_recv"))}\n")
+        sb.append("BOP Roll Distribute:${pad(n(f, "bop_dist"))}\n")
+        sb.append("BOP Roll Closing:${pad(n(f, "bop_cls"))}\n")
+        sb.append("BOP Slip card Count:${pad(n(f, "bop_cardcnt"))}\n")
+        sb.append("BOP Slip Sale Count:${pad(n(f, "bop_slips"))}\n")
+        sb.append("BOP Slip Sale Amount :${pad(n(f, "bop_slips") * 30)}\n")
+        sb.append("====================\nTOM Sale\n")
+        sb.append("TOM Roll Opening:${pad(n(f, "roll_op"))}\n")
+        sb.append("TOM Roll Received:${pad(n(f, "roll_recv"))}\n")
+        sb.append("TOM Roll Distribute:${pad(n(f, "roll_dist"))}\n")
+        sb.append("TOM Roll Closing:${pad(n(f, "roll_cls"))}\n")
+        sb.append("TOM Slip Sale  Count:$slipsStr\n")
+        sb.append("TOM Slip Sale Amount :$amtStr\n")
+        sb.append("====================\n")
+        sb.append("TKM ROll opening:${pad(n(f, "tkm_op"))}\n")
+        sb.append("TKM ROll received:${pad(n(f, "tkm_recv"))}\n")
+        sb.append("TKM ROll distribution:${pad(n(f, "tkm_dist"))}\n")
+        sb.append("TKM ROll closing:${pad(n(f, "tkm_cls"))}\n")
+        sb.append("====================")
+        val letters = listOf("A", "B", "C", "D", "E")
+        for (i in 1..cnt) {
+            val k = "tom$i"
+            sb.append("\nTOM ${letters[i - 1]}\n")
+            sb.append("Opening:${pad(n(f, k + "_op"))}\n")
+            sb.append("Recharge:${pad(n(f, k + "_rchg"))}\n")
+            sb.append("Closing:${pad(n(f, k + "_cls"))}")
+            if (i < cnt) sb.append("\n")
+        }
+        return sb.toString()
+    }
+
+    fun rmbsText(ctx: android.content.Context): String {
+        val code = if (shift(ctx).lowercase().startsWith("morn")) "SM" else "SE"
+        val stNum = stationNumbers[station(ctx)] ?: "000"
+        return "$code,SN$stNum,BC${grandSale(ctx)},TS00,CS00,TCS00,CI00,TC00,RC00,TI00,ST00,CR00,CT00,FC00,F00,TK00,UT00,TR00,TD00,TT00,E00,RS00,AT00,RT00,ET00,R00,N00"
+    }
+
+    fun cardClaimText(ctx: android.content.Context, countRaw: String): String {
+        val nPad = ((countRaw.toIntOrNull() ?: 0)).toString().padStart(2, '0')
+        val stDot = station(ctx).replace("-", ".")
+        val sep = "=•=•=•=•=•=•=•=•=•="
+        return "*Card claim Detail*\nStation: *$stDot*\nShift: ${shift(ctx)}\nDate: ${dateSlash()}\nCard claim Total=$nPad\n$sep"
+    }
+
+    fun share(ctx: android.content.Context, text: String) {
+        try {
+            val url = "https://api.whatsapp.com/send?text=" + android.net.Uri.encode(text)
+            ctx.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        } catch (e: Exception) {
+            Toast.makeText(ctx, "WhatsApp nahi khul saka", Toast.LENGTH_SHORT).show()
+        }
+    }
+}
+
+@Composable
+fun ReportsScreen(back: () -> Unit, go: (Screen) -> Unit) {
+    val context = LocalContext.current
+    var opAt by remember { mutableStateOf<String?>(null) }
+    var clAt by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        opAt = TomStore.savedAt(context, "opening")
+        clAt = TomStore.savedAt(context, "closing")
+    }
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+        SubHeader("Reports", "Daily & closing reports — WhatsApp ready", back)
+        MpCard {
+            ListRow(Icons.Filled.Send, "Opening Report", if (opAt != null) "Saved — $opAt" else "Opening saved nahi hai", { WaReports.share(context, WaReports.openingText(context)) })
+            HorizontalDivider(color = Color(0x140E2418))
+            ListRow(Icons.Filled.Send, "Closing Report (TOM TKM POS)", if (clAt != null) "Saved — $clAt" else "Closing saved nahi hai", { WaReports.share(context, WaReports.closingText(context)) })
+            HorizontalDivider(color = Color(0x140E2418))
+            ListRow(Icons.Filled.DateRange, "Closing Time", "RMBS + Card Claim", { go(Screen.ClosingTime) })
+        }
+        Spacer(Modifier.height(10.dp))
+        MpCard {
+            Text("Reports hamesha aaj ki date, profile wale station aur selected shift se banti hain — purani date kabhi nahi ati.", color = White60, fontSize = 12.sp)
+        }
         Spacer(Modifier.height(20.dp))
     }
 }
 
 @Composable
-fun QtyBtn(label: String, onClick: () -> Unit) {
-    Box(
-        Modifier.size(26.dp).clip(CircleShape).background(GoldBrush).clickable { onClick() },
-        contentAlignment = Alignment.Center
-    ) { Text(label, color = Color.Black, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold) }
-}
-
-/* ---------------- Reports ---------------- */
-
-@Composable
-fun ReportsScreen(back: () -> Unit) {
+fun ClosingTimeScreen(back: () -> Unit) {
     val context = LocalContext.current
-    val soon = { Toast.makeText(context, "Feature coming in next update — GUI test build", Toast.LENGTH_SHORT).show() }
+    var cardCount by remember { mutableStateOf("") }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        SubHeader("Reports", "Daily & closing reports", back)
+        SubHeader("Closing Time", "Shift ke end wali reports", back)
         MpCard {
-            ListRow(Icons.Filled.List, "Closing Report", "RMBS format — WhatsApp ready", soon)
-            HorizontalDivider(color = Color(0x14FFFFFF))
-            ListRow(Icons.Filled.Star, "Card Claim Report", "Daily card claim detail", soon)
-            HorizontalDivider(color = Color(0x14FFFFFF))
-            ListRow(Icons.Filled.DateRange, "Shift Summary", "Morning / Evening totals", soon)
-            HorizontalDivider(color = Color(0x14FFFFFF))
-            ListRow(Icons.Filled.Send, "Export History", "Previous days record", soon)
+            Text("TOM TKM POS Closing", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+            Text("Poori closing report — TOM register wala hi format", color = White60, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp, bottom = 10.dp))
         }
-        Spacer(Modifier.height(10.dp))
-        GoldButton("Send Report on WhatsApp", soon)
+        GoldButton("WhatsApp — TOM TKM POS Closing") { WaReports.share(context, WaReports.closingText(context)) }
+        Spacer(Modifier.height(8.dp))
+        MpCard {
+            Text("R MBS Closing", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+            Text("BC = aaj ki grand sale (Rs ${tomFmt(WaReports.grandSale(context).toDouble())})", color = White60, fontSize = 12.sp, modifier = Modifier.padding(top = 2.dp, bottom = 4.dp))
+            Text(WaReports.rmbsText(context), color = White70, fontSize = 11.sp, lineHeight = 15.sp)
+        }
+        GoldButton("WhatsApp — RMBS Closing") { WaReports.share(context, WaReports.rmbsText(context)) }
+        Spacer(Modifier.height(8.dp))
+        MpCard {
+            Text("Card Claim", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(bottom = 8.dp))
+            DarkField("Kitne card hain?", cardCount, { cardCount = it.filter { ch -> ch.isDigit() } }, numeric = true)
+        }
+        GoldButton("WhatsApp — Card Claim") { WaReports.share(context, WaReports.cardClaimText(context, cardCount)) }
         Spacer(Modifier.height(20.dp))
     }
 }
@@ -1229,7 +1548,7 @@ fun SettingsScreen(back: () -> Unit, updateState: UpdateUiState, onCheck: () -> 
                     val active = shift == sh
                     Box(
                         Modifier.weight(1f).clip(RoundedCornerShape(999.dp))
-                            .then(if (active) Modifier.background(GoldBrush) else Modifier.background(Forest1).border(1.dp, Color(0x4DFFD700), RoundedCornerShape(999.dp)))
+                            .then(if (active) Modifier.background(GoldBrush) else Modifier.background(Forest1).border(1.dp, Color(0x59B97F00), RoundedCornerShape(999.dp)))
                             .clickable { shift = sh }.padding(vertical = 9.dp),
                         contentAlignment = Alignment.Center
                     ) { Text(sh.replace(" Shift", ""), color = if (active) Color.Black else White70, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold) }
@@ -1252,16 +1571,35 @@ fun SettingsScreen(back: () -> Unit, updateState: UpdateUiState, onCheck: () -> 
             Toast.makeText(context, "TL / RP saved", Toast.LENGTH_SHORT).show()
         }
 
+        SectionTitle("TOM")
+        MpCard {
+            Text("Kitni TOM use hoti hain?", color = Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 4.dp))
+            Text("TOM screen aur Summary me utni hi TOM nazar ayengi.", color = White60, fontSize = 11.5.sp, modifier = Modifier.padding(bottom = 10.dp))
+            var tomCount by remember { mutableStateOf(ProfileStore.get(context, "tomCount", "5")) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                (1..5).forEach { cnt ->
+                    val active = tomCount == cnt.toString()
+                    Box(
+                        Modifier.weight(1f).clip(RoundedCornerShape(12.dp))
+                            .then(if (active) Modifier.background(GoldBrush) else Modifier.background(Forest1).border(1.dp, Color(0x59B97F00), RoundedCornerShape(12.dp)))
+                            .clickable { tomCount = cnt.toString(); ProfileStore.put(context, "tomCount", cnt.toString()) }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) { Text(cnt.toString(), color = if (active) Color.Black else Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold) }
+                }
+            }
+        }
+
         SectionTitle("App & Updates")
         MpCard {
             ListRow(Icons.Filled.Refresh, "Auto Update", "Har app open pe 5 second baad check — hamesha ON", {}) {
-                Text("ON", fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold, style = TextStyle(brush = GoldBrush))
+                Text("ON", fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold, style = TextStyle(color = GoldDeep))
             }
-            HorizontalDivider(color = Color(0x14FFFFFF))
+            HorizontalDivider(color = Color(0x140E2418))
             ListRow(Icons.Filled.Notifications, "Notifications", "Shift reminders", {}) {
                 Switch(checked = notifs, onCheckedChange = { notifs = it }, colors = SwitchDefaults.colors(checkedThumbColor = Color.Black, checkedTrackColor = Gold1, uncheckedThumbColor = Gold1, uncheckedTrackColor = Forest1))
             }
-            HorizontalDivider(color = Color(0x14FFFFFF))
+            HorizontalDivider(color = Color(0x140E2418))
             ListRow(Icons.Filled.Info, "App Language", "English", {})
         }
         GoldButton(
@@ -1279,9 +1617,9 @@ fun SettingsScreen(back: () -> Unit, updateState: UpdateUiState, onCheck: () -> 
         SectionTitle("About")
         MpCard {
             ListRow(Icons.Filled.AccountCircle, "MetroPro", "Daily Work App — Version $CURRENT_VERSION_NAME", {})
-            HorizontalDivider(color = Color(0x14FFFFFF))
+            HorizontalDivider(color = Color(0x140E2418))
             ListRow(Icons.Filled.Person, "Developer", "Muneeb", {})
-            HorizontalDivider(color = Color(0x14FFFFFF))
+            HorizontalDivider(color = Color(0x140E2418))
             ListRow(Icons.Filled.Info, "Package", "com.zabii.metropro", {})
         }
         Spacer(Modifier.height(20.dp))
@@ -1297,7 +1635,7 @@ fun PortalScreen(back: () -> Unit) {
         MpCard {
             Column(Modifier.fillMaxWidth().padding(vertical = 26.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 GoldIconBox(Icons.Filled.Place, size = 58, iconSize = 28, radius = 18)
-                Text("GCS Portal", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 14.dp))
+                Text("GCS Portal", color = Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 14.dp))
                 Text("Ye screen agli update me detail se banegi", color = White60, fontSize = 12.sp)
             }
         }
@@ -1305,43 +1643,127 @@ fun PortalScreen(back: () -> Unit) {
     }
 }
 
+/* ===== Attendance — staff mark + save + share ===== */
+
 @Composable
 fun AttendanceScreen(back: () -> Unit) {
     val context = LocalContext.current
+    val todayKey = remember { SimpleDateFormat("yyyyMMdd", Locale.ENGLISH).format(Date()) }
+    var staffText by remember { mutableStateOf(ProfileStore.get(context, "staffList", "Muhammad Aryan\nAhsan\nShehryar\nTahir\nShahid\nUsman")) }
+    var editing by remember { mutableStateOf(false) }
+    val staff = remember(staffText, editing) { staffText.split("\n").map { it.trim() }.filter { it.isNotBlank() } }
+    val status = remember { mutableStateMapOf<String, String>() }
+    LaunchedEffect(Unit) {
+        val raw = ProfileStore.get(context, "att_$todayKey", "")
+        if (raw.isNotBlank()) {
+            try {
+                val obj = org.json.JSONObject(raw)
+                val keys = obj.keys()
+                while (keys.hasNext()) { val k = keys.next(); status[k] = obj.optString(k) }
+            } catch (e: Exception) { }
+        }
+    }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        SubHeader("Attendance", "Staff record — aaj ki hazri", back)
+        SubHeader("Attendance", "Aaj ki hazri — ${SimpleDateFormat("dd MMM yyyy", Locale.ENGLISH).format(Date())}", back)
         MpCard {
-            val staff = listOf(
-                Triple("Staff Member 1", "Morning — Present", "PRESENT"),
-                Triple("Staff Member 2", "Morning — Present", "PRESENT"),
-                Triple("Staff Member 3", "Evening — Pending", "PENDING")
-            )
-            staff.forEachIndexed { i, (n, s, st) ->
-                if (i > 0) HorizontalDivider(color = Color(0x14FFFFFF))
-                ListRow(Icons.Filled.Person, n, s, {}) {
-                    Text(st, fontSize = 12.sp, fontWeight = FontWeight.Bold, style = if (st == "PRESENT") TextStyle(brush = GoldBrush) else TextStyle(color = White60))
+            staff.forEachIndexed { i, name ->
+                if (i > 0) HorizontalDivider(color = Color(0x140E2418))
+                Row(Modifier.fillMaxWidth().padding(vertical = 9.dp), verticalAlignment = Alignment.CenterVertically) {
+                    GoldIconBox(Icons.Filled.Person, size = 38, iconSize = 19, radius = 12)
+                    Spacer(Modifier.width(12.dp))
+                    Text(name, color = Ink, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    val st = status[name] ?: ""
+                    listOf("P" to "Present", "A" to "Absent").forEach { (code, label) ->
+                        val active = st == code
+                        Box(
+                            Modifier.padding(start = 6.dp).clip(RoundedCornerShape(999.dp))
+                                .then(if (active) Modifier.background(GoldBrush) else Modifier.background(Forest1).border(1.dp, Color(0x59B97F00), RoundedCornerShape(999.dp)))
+                                .clickable { status[name] = code }
+                                .padding(horizontal = 13.dp, vertical = 7.dp)
+                        ) { Text(label, color = if (active) Color.Black else White60, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold) }
+                    }
                 }
             }
         }
-        Spacer(Modifier.height(10.dp))
-        GoldButton("Mark Attendance") { Toast.makeText(context, "Feature coming in next update — GUI test build", Toast.LENGTH_SHORT).show() }
+        Spacer(Modifier.height(8.dp))
+        GoldButton("Save Attendance") {
+            val obj = org.json.JSONObject()
+            status.forEach { (k, v) -> obj.put(k, v) }
+            ProfileStore.put(context, "att_$todayKey", obj.toString())
+            Toast.makeText(context, "Attendance saved", Toast.LENGTH_SHORT).show()
+        }
+        GhostButton("WhatsApp pe bhejo") {
+            val sb = StringBuilder()
+            sb.append("*Attendance — ${ProfileStore.get(context, "station", "Shaheed-e-Millat")}*\n")
+            sb.append("Date: ${SimpleDateFormat("dd/MM/yyyy", Locale.ENGLISH).format(Date())} — Shift: ${ProfileStore.get(context, "shift", "Morning Shift")}\n")
+            staff.forEach { nm -> sb.append("$nm: ${if (status[nm] == "P") "Present" else if (status[nm] == "A") "Absent" else "—"}\n") }
+            WaReports.share(context, sb.toString().trim())
+        }
+        Spacer(Modifier.height(6.dp))
+        GhostButton(if (editing) "Staff List Band karo" else "Staff List Edit karo") { editing = !editing }
+        if (editing) {
+            Spacer(Modifier.height(6.dp))
+            MpCard {
+                Text("Ek line me ek naam likho:", color = White60, fontSize = 12.sp, modifier = Modifier.padding(bottom = 8.dp))
+                BasicTextField(
+                    value = staffText,
+                    onValueChange = { staffText = it },
+                    textStyle = TextStyle(color = Ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+                    cursorBrush = SolidColor(GoldDeep),
+                    decorationBox = { inner ->
+                        Box(
+                            Modifier.fillMaxWidth().height(130.dp).clip(RoundedCornerShape(12.dp)).background(Forest1)
+                                .border(1.dp, Color(0x59B97F00), RoundedCornerShape(12.dp)).padding(12.dp)
+                        ) { inner() }
+                    }
+                )
+            }
+            GoldButton("Staff List Save karo") {
+                ProfileStore.put(context, "staffList", staffText)
+                editing = false
+                Toast.makeText(context, "Staff list saved", Toast.LENGTH_SHORT).show()
+            }
+        }
         Spacer(Modifier.height(20.dp))
     }
 }
 
+/* ===== Complaint — WhatsApp pe TL ko ===== */
+
 @Composable
 fun ComplaintScreen(back: () -> Unit) {
     val context = LocalContext.current
-    var type by remember { mutableStateOf("Machine Issue") }
+    var type by remember { mutableStateOf("TOM") }
     var detail by remember { mutableStateOf("") }
+    val types = listOf("TOM", "TKM", "Incident", "Other")
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        SubHeader("Complaint", "Send to TL", back)
+        SubHeader("Complaint", "TL ko WhatsApp pe bhejo", back)
         MpCard {
-            DarkField("Complaint Type", type, { type = it })
-            DarkField("Detail", if (detail.isEmpty()) "Write your complaint here..." else detail, { detail = it }, placeholder = detail.isEmpty())
+            Text("Complaint Type", color = White70, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
+            Row(Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                types.forEach { t ->
+                    val active = type == t
+                    Box(
+                        Modifier.weight(1f).clip(RoundedCornerShape(999.dp))
+                            .then(if (active) Modifier.background(GoldBrush) else Modifier.background(Forest1).border(1.dp, Color(0x59B97F00), RoundedCornerShape(999.dp)))
+                            .clickable { type = t }.padding(vertical = 9.dp),
+                        contentAlignment = Alignment.Center
+                    ) { Text(t, color = if (active) Color.Black else White70, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold) }
+                }
+            }
+            DarkField("Detail", detail, { detail = it })
         }
         Spacer(Modifier.height(10.dp))
-        GoldButton("Send Complaint") { Toast.makeText(context, "Feature coming in next update — GUI test build", Toast.LENGTH_SHORT).show() }
+        GoldButton("WhatsApp pe Complaint bhejo") {
+            val sb = StringBuilder()
+            sb.append("*Complaint — ${ProfileStore.get(context, "station", "Shaheed-e-Millat")}*\n")
+            sb.append("Name: ${ProfileStore.get(context, "name", "Muhammad Aryan")}\n")
+            sb.append("Shift: ${ProfileStore.get(context, "shift", "Morning Shift")}\n")
+            sb.append("Date: ${SimpleDateFormat("dd/MM/yyyy", Locale.ENGLISH).format(Date())}\n")
+            sb.append("Type: $type\n")
+            sb.append("Detail: ${detail.ifBlank { "—" }}")
+            WaReports.share(context, sb.toString())
+        }
         Spacer(Modifier.height(20.dp))
     }
 }
