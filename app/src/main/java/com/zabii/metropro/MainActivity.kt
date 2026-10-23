@@ -81,8 +81,8 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
-private const val CURRENT_VERSION_CODE = 6
-private const val CURRENT_VERSION_NAME = "1.5"
+private const val CURRENT_VERSION_CODE = 7
+private const val CURRENT_VERSION_NAME = "1.6"
 private const val VERSION_URL = "https://maryanrajput72-bot.github.io/metro-pro/version.json"
 
 // LIGHT GLASS THEME (v1.5 — uske color chart se light rang; glass jaisay safed cards)
@@ -1079,28 +1079,64 @@ fun TomScreen(back: () -> Unit) {
 
 /* ===== GPS Camera — asal photo + stamp + share ===== */
 
-fun stampBitmap(src: android.graphics.Bitmap, lines: List<String>): android.graphics.Bitmap {
+/* ===== GPS Camera — Metro+ .31 style: app ke andar live camera + satellite map stamp ===== */
+
+fun esriTileUrl(lat: Double, lng: Double, zoom: Int): String {
+    val n = Math.pow(2.0, zoom.toDouble())
+    val x = ((lng + 180.0) / 360.0 * n).toInt()
+    val latRad = Math.toRadians(lat)
+    val y = ((1.0 - Math.log(Math.tan(latRad) + 1.0 / Math.cos(latRad)) / Math.PI) / 2.0 * n).toInt()
+    return "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/$zoom/$y/$x"
+}
+
+fun fetchTileBitmap(lat: Double, lng: Double, zoom: Int): android.graphics.Bitmap? {
+    return try {
+        val conn = java.net.URL(esriTileUrl(lat, lng, zoom)).openConnection() as java.net.HttpURLConnection
+        conn.connectTimeout = 8000
+        conn.readTimeout = 8000
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android)")
+        conn.inputStream.use { android.graphics.BitmapFactory.decodeStream(it) }
+    } catch (e: Exception) { null }
+}
+
+/* Stamp frame: neeche band — left satellite map, right station/time/location (Metro+ frame jaisa) */
+fun stampFrameBitmap(src: android.graphics.Bitmap, tile: android.graphics.Bitmap?, lines: List<String>): android.graphics.Bitmap {
     val out = src.copy(android.graphics.Bitmap.Config.ARGB_8888, true)
     val canvas = android.graphics.Canvas(out)
     val w = out.width.toFloat()
     val h = out.height.toFloat()
     val scale = w / 1080f
-    val pad = 28f * scale
-    val lineH = 44f * scale
-    val boxH = pad * 1.6f + lineH * lines.size
-    val bg = android.graphics.Paint().apply { color = android.graphics.Color.argb(178, 6, 32, 18) }
-    canvas.drawRect(0f, h - boxH, w * 0.86f, h, bg)
+    val bandH = 300f * scale
+    val bg = android.graphics.Paint().apply { color = android.graphics.Color.argb(190, 6, 32, 18) }
+    canvas.drawRect(0f, h - bandH, w, h, bg)
+    val goldLine = android.graphics.Paint().apply { color = android.graphics.Color.rgb(255, 183, 0) }
+    canvas.drawRect(0f, h - bandH, w, h - bandH + 6f * scale, goldLine)
+    var textX = 36f * scale
+    if (tile != null) {
+        val mapSize = bandH - 48f * scale
+        val left = 24f * scale
+        val top = h - bandH + 24f * scale
+        val dst = android.graphics.RectF(left, top, left + mapSize, top + mapSize)
+        canvas.drawBitmap(tile, null, dst, android.graphics.Paint().apply { isFilterBitmap = true })
+        val border = android.graphics.Paint().apply {
+            color = android.graphics.Color.rgb(255, 215, 0); style = android.graphics.Paint.Style.STROKE; strokeWidth = 4f * scale
+        }
+        canvas.drawRect(dst, border)
+        // location pin dot (center)
+        val pin = android.graphics.Paint().apply { color = android.graphics.Color.rgb(255, 60, 60) }
+        canvas.drawCircle(left + mapSize / 2, top + mapSize / 2, 10f * scale, pin)
+        textX = left + mapSize + 32f * scale
+    }
     val gold = android.graphics.Paint().apply {
-        color = android.graphics.Color.rgb(255, 215, 0); textSize = 40f * scale
+        color = android.graphics.Color.rgb(255, 215, 0); textSize = 46f * scale
         typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
         isAntiAlias = true
     }
-    val white = android.graphics.Paint().apply {
-        color = android.graphics.Color.WHITE; textSize = 36f * scale; isAntiAlias = true
-    }
+    val white = android.graphics.Paint().apply { color = android.graphics.Color.WHITE; textSize = 40f * scale; isAntiAlias = true }
+    val lineH = (bandH - 40f * scale) / maxOf(1, lines.size)
     lines.forEachIndexed { i, line ->
-        val y = h - boxH + pad * 0.9f + lineH * (i + 0.8f)
-        canvas.drawText(line, pad, y, if (i == 0) gold else white)
+        val y = h - bandH + 34f * scale + lineH * (i + 0.75f)
+        canvas.drawText(line, textX, y, if (i == 0) gold else white)
     }
     return out
 }
@@ -1110,102 +1146,176 @@ fun CameraScreen(back: () -> Unit) {
     val context = LocalContext.current
     val station = remember { ProfileStore.get(context, "station", "Shaheed-e-Millat") }
     var photoPath by remember { mutableStateOf(ProfileStore.get(context, "lastPhoto", "")) }
-    var stampLines by remember { mutableStateOf<List<String>>(emptyList()) }
-    var pendingFile by remember { mutableStateOf<java.io.File?>(null) }
+    var showLive by remember { mutableStateOf(photoPath.isBlank() || !java.io.File(photoPath).exists()) }
+    var lat by remember { mutableStateOf<Double?>(null) }
+    var lng by remember { mutableStateOf<Double?>(null) }
+    var tileBmp by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    var textureView by remember { mutableStateOf<android.view.TextureView?>(null) }
+    var camRef by remember { mutableStateOf<android.hardware.Camera?>(null) }
+    var capturing by remember { mutableStateOf(false) }
 
-    fun nowLines(latLng: String?): List<String> {
-        val dt = SimpleDateFormat("dd MMM yyyy — hh:mm a", Locale.ENGLISH).format(Date())
-        val lines = mutableListOf(station + " Station", "Islamabad, Pakistan", dt)
-        if (latLng != null) lines.add(latLng)
-        return lines
+    fun refreshLocation() {
+        try {
+            val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
+            for (pr in listOf(android.location.LocationManager.GPS_PROVIDER, android.location.LocationManager.NETWORK_PROVIDER)) {
+                val loc = lm.getLastKnownLocation(pr)
+                if (loc != null) { lat = loc.latitude; lng = loc.longitude; break }
+            }
+        } catch (e: Exception) { }
     }
-
-    val takePicture = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.TakePicture()
-    ) { success ->
-        val file = pendingFile
-        if (success && file != null && file.exists()) {
-            try {
-                // Location (last known) — mile to stamp me, na mile to baghair
-                var latLng: String? = null
-                try {
-                    val lm = context.getSystemService(android.content.Context.LOCATION_SERVICE) as android.location.LocationManager
-                    val providers = listOf(android.location.LocationManager.GPS_PROVIDER, android.location.LocationManager.NETWORK_PROVIDER)
-                    for (pr in providers) {
-                        val loc = lm.getLastKnownLocation(pr)
-                        if (loc != null) { latLng = "Lat %.4f, Lng %.4f".format(loc.latitude, loc.longitude); break }
-                    }
-                } catch (e: Exception) { }
-                val lines = nowLines(latLng)
-                val bmp = android.graphics.BitmapFactory.decodeFile(file.absolutePath)
-                if (bmp != null) {
-                    val stamped = stampBitmap(bmp, lines)
-                    java.io.FileOutputStream(file).use { out -> stamped.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, out) }
-                    stampLines = lines
-                }
-                photoPath = file.absolutePath
-                ProfileStore.put(context, "lastPhoto", file.absolutePath)
-                Toast.makeText(context, "Photo saved — stamp lag gaya", Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                Toast.makeText(context, "Photo process nahi ho saka", Toast.LENGTH_SHORT).show()
+    LaunchedEffect(lat, lng) {
+        val la = lat; val ln = lng
+        if (la != null && ln != null && tileBmp == null) {
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val t = fetchTileBitmap(la, ln, 17)
+                if (t != null) tileBmp = t
             }
         }
     }
-    val permLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
-    ) { }
+    LaunchedEffect(Unit) { refreshLocation() }
 
-    fun capture() {
+    fun stopCamera() {
+        try { camRef?.stopPreview(); camRef?.release() } catch (e: Exception) { }
+        camRef = null
+    }
+    fun startCamera(tv: android.view.TextureView) {
         try {
-            val dir = java.io.File(context.cacheDir, "photos").apply { mkdirs() }
-            val file = java.io.File(dir, "metro_${System.currentTimeMillis()}.jpg")
-            pendingFile = file
-            val uri = androidx.core.content.FileProvider.getUriForFile(context, "com.zabii.metropro.fileprovider", file)
-            takePicture.launch(uri)
+            stopCamera()
+            val cam = android.hardware.Camera.open(0)
+            camRef = cam
+            val params = cam.parameters
+            // sab se bara preview size jo screen ratio ke qareeb ho
+            val best = params.supportedPreviewSizes.maxByOrNull { it.width * it.height }
+            if (best != null) params.setPreviewSize(best.width, best.height)
+            val picBest = params.supportedPictureSizes.maxByOrNull { it.width * it.height }
+            if (picBest != null) params.setPictureSize(picBest.width, picBest.height)
+            if (params.supportedFocusModes.contains(android.hardware.Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE)) {
+                params.focusMode = android.hardware.Camera.Parameters.FOCUS_MODE_CONTINUOUS_PICTURE
+            }
+            params.jpegQuality = 92
+            cam.parameters = params
+            cam.setDisplayOrientation(90)
+            cam.setPreviewTexture(tv.surfaceTexture)
+            cam.startPreview()
         } catch (e: Exception) {
-            Toast.makeText(context, "Camera nahi khul saka", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "Camera nahi khul saka — permission check karo", Toast.LENGTH_SHORT).show()
         }
     }
+    DisposableEffect(Unit) { onDispose { stopCamera() } }
+
+    fun capturePhoto() {
+        val cam = camRef
+        if (cam == null || capturing) { Toast.makeText(context, "Camera tayyar nahi — ek lamha ruko", Toast.LENGTH_SHORT).show(); return }
+        capturing = true
+        try {
+            cam.takePicture(null, null) { data, _ ->
+                Thread {
+                    try {
+                        var bmp = android.graphics.BitmapFactory.decodeByteArray(data, 0, data.size)
+                        // back camera: 90 degree ghumao
+                        val matrix = android.graphics.Matrix().apply { postRotate(90f) }
+                        bmp = android.graphics.Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, matrix, true)
+                        val la = lat ?: 33.7294
+                        val ln = lng ?: 73.0931
+                        val tile = tileBmp ?: fetchTileBitmap(la, ln, 17)
+                        val dt = SimpleDateFormat("dd MMM yyyy — hh:mm a", Locale.ENGLISH).format(Date())
+                        val lines = mutableListOf("$station Station", "Islamabad, Pakistan", dt)
+                        if (lat != null && lng != null) lines.add("Lat %.4f, Lng %.4f".format(lat, lng))
+                        val stamped = stampFrameBitmap(bmp, tile, lines)
+                        val dir = java.io.File(context.cacheDir, "photos").apply { mkdirs() }
+                        val file = java.io.File(dir, "metro_${System.currentTimeMillis()}.jpg")
+                        java.io.FileOutputStream(file).use { out -> stamped.compress(android.graphics.Bitmap.CompressFormat.JPEG, 90, out) }
+                        MetroOnline.pushPhoto(context, stamped, lat, lng)
+                        android.os.Handler(android.os.Looper.getMainLooper()).post {
+                            photoPath = file.absolutePath
+                            ProfileStore.put(context, "lastPhoto", file.absolutePath)
+                            capturing = false
+                            showLive = false
+                            Toast.makeText(context, "Photo saved — stamp lag gaya", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Exception) {
+                        android.os.Handler(android.os.Looper.getMainLooper()).post { capturing = false }
+                    }
+                }.start()
+            }
+        } catch (e: Exception) { capturing = false }
+    }
+
+    val permLauncher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()
+    ) { refreshLocation() }
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-        SubHeader("GPS Camera", "Photo with location stamp", back)
+        SubHeader("GPS Camera", "Metro+ style — live camera, map stamp", back)
         Box(
-            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp).height(340.dp)
-                .clip(RoundedCornerShape(22.dp)).background(Forest1).border(1.dp, Color(0x59B97F00), RoundedCornerShape(22.dp))
+            Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, top = 12.dp).height(430.dp)
+                .clip(RoundedCornerShape(22.dp)).background(Color.Black).border(1.dp, Color(0x59B97F00), RoundedCornerShape(22.dp))
         ) {
-            if (photoPath.isNotBlank() && java.io.File(photoPath).exists()) {
+            if (showLive) {
+                androidx.compose.ui.viewinterop.AndroidView(
+                    factory = { ctv ->
+                        android.view.TextureView(ctv).also { tv ->
+                            textureView = tv
+                            tv.surfaceTextureListener = object : android.view.TextureView.SurfaceTextureListener {
+                                override fun onSurfaceTextureAvailable(st: android.graphics.SurfaceTexture, w: Int, h: Int) { startCamera(tv) }
+                                override fun onSurfaceTextureSizeChanged(st: android.graphics.SurfaceTexture, w: Int, h: Int) { }
+                                override fun onSurfaceTextureDestroyed(st: android.graphics.SurfaceTexture): Boolean { stopCamera(); return true }
+                                override fun onSurfaceTextureUpdated(st: android.graphics.SurfaceTexture) { }
+                            }
+                            if (tv.isAvailable) startCamera(tv)
+                        }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+                Text("● LIVE", color = Color(0xFFFF5252), fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.align(Alignment.TopEnd).padding(14.dp))
+                // chhota satellite map preview (neeche right) — Metro+ ki live map jaisa
+                if (tileBmp != null) {
+                    Image(
+                        painter = androidx.compose.ui.graphics.painter.BitmapPainter(tileBmp!!.asImageBitmap()),
+                        contentDescription = "Satellite map", contentScale = ContentScale.Crop,
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp).size(104.dp)
+                            .clip(RoundedCornerShape(12.dp)).border(2.dp, Gold1, RoundedCornerShape(12.dp))
+                    )
+                }
+                Column(
+                    Modifier.align(Alignment.BottomStart).padding(12.dp).clip(RoundedCornerShape(10.dp))
+                        .background(Color.Black.copy(alpha = 0.62f)).padding(horizontal = 10.dp, vertical = 7.dp)
+                ) {
+                    Text("$station Station", color = Gold1, fontSize = 11.5.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        if (lat != null) "Lat %.4f, Lng %.4f".format(lat, lng) else "Location dhoond raha hai...",
+                        color = Color.White, fontSize = 10.5.sp
+                    )
+                }
+            } else {
                 Image(
                     painter = androidx.compose.ui.graphics.painter.BitmapPainter(
                         android.graphics.BitmapFactory.decodeFile(photoPath).asImageBitmap()
                     ),
                     contentDescription = "Captured photo", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop
                 )
-            } else {
-                Text("● LIVE GPS", color = GoldDeep, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.align(Alignment.TopEnd).padding(14.dp))
-                Column(
-                    Modifier.align(Alignment.BottomStart).padding(14.dp).clip(RoundedCornerShape(10.dp))
-                        .background(Forest2).border(1.dp, Color(0x59B97F00), RoundedCornerShape(10.dp)).padding(10.dp)
-                ) {
-                    Text("$station Station", color = GoldDeep, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    Text("Islamabad, Pakistan", color = Ink, fontSize = 11.5.sp)
-                    Text("Photo lo — stamp khud lagega", color = White60, fontSize = 11.5.sp)
-                }
-                Text("Abhi koi photo nahi li", color = White60, fontSize = 12.5.sp, modifier = Modifier.align(Alignment.Center))
             }
         }
-        Spacer(Modifier.height(16.dp))
-        Box(
-            Modifier.size(66.dp).clip(CircleShape).background(GoldBrush)
-                .border(5.dp, Color(0xD9FFFFFF), CircleShape)
-                .clickable {
-                    permLauncher.launch(arrayOf(android.Manifest.permission.CAMERA, android.Manifest.permission.ACCESS_FINE_LOCATION))
-                    capture()
-                }
-                .align(Alignment.CenterHorizontally)
-        )
-        Text("Tap — photo lo", color = White60, fontSize = 11.5.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-        Spacer(Modifier.height(10.dp))
-        GoldButton("WhatsApp pe Photo bhejo") {
+        Spacer(Modifier.height(14.dp))
+        if (showLive) {
+            Box(
+                Modifier.size(68.dp).clip(CircleShape).background(GoldBrush)
+                    .border(5.dp, GoldDeep, CircleShape)
+                    .clickable {
+                        if (lat == null) permLauncher.launch(arrayOf(android.Manifest.permission.CAMERA, android.Manifest.permission.ACCESS_FINE_LOCATION))
+                        capturePhoto()
+                    }
+                    .align(Alignment.CenterHorizontally)
+            )
+            Text(if (capturing) "Photo ban raha hai..." else "Tap — photo lo", color = White60, fontSize = 11.5.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+        } else {
+            GoldButton("Nayi Photo — Live Camera") {
+                showLive = true
+                textureView?.let { if (it.isAvailable) startCamera(it) }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        GhostButton("WhatsApp pe Photo bhejo") {
             val f = java.io.File(photoPath)
             if (photoPath.isBlank() || !f.exists()) {
                 Toast.makeText(context, "Pehle photo lo", Toast.LENGTH_SHORT).show()
@@ -1690,6 +1800,7 @@ fun AttendanceScreen(back: () -> Unit) {
             val obj = org.json.JSONObject()
             status.forEach { (k, v) -> obj.put(k, v) }
             ProfileStore.put(context, "att_$todayKey", obj.toString())
+            MetroOnline.pushDay(context)
             Toast.makeText(context, "Attendance saved", Toast.LENGTH_SHORT).show()
         }
         GhostButton("WhatsApp pe bhejo") {
